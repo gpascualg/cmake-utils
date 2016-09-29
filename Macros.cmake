@@ -4,7 +4,7 @@ include(ExternalProject)
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE"
+        "EXCLUDE;SKIP_BUILD;FORCE_LINK"
         "TARGET;MODULE;INC_PATH"
         ""
         ${ARGN}
@@ -22,43 +22,66 @@ function(RequireExternal)
 
     message("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
 
-    ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
-        GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-        GIT_TAG ${GITHUB_TAB}
-        PREFIX ${CMAKE_BINARY_DIR}/third_party
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ""
-        TEST_COMMAND ""
-        UPDATE_COMMAND ""
-    )
+    if (NOT ARG_INC_PATH)
+        set(ARG_INC_PATH "include")
+    endif()
+
+    if (ARG_SKIP_BUILD)
+        ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
+            GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+            GIT_TAG ${GITHUB_TAB}
+            PREFIX ${CMAKE_BINARY_DIR}/third_party
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            TEST_COMMAND ""
+            UPDATE_COMMAND ""
+        )
+    else ()
+        ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
+            GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+            GIT_TAG ${GITHUB_TAB}
+            PREFIX ${CMAKE_BINARY_DIR}/third_party
+            INSTALL_COMMAND ""
+            TEST_COMMAND ""
+            UPDATE_COMMAND ""
+        )
+
+        # Add build directory to include
+        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/ CACHE INTERNAL "")
+        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/${ARG_INC_PATH} CACHE INTERNAL "")
+    endif()
 
     if (ARG_EXCLUDE)
         set_target_properties(${GITHUB_USER}_${GITHUB_REPO} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     endif()
 
-    if (NOT ARG_INC_PATH)
-        set(ARG_INC_PATH "include")
+    if (ARG_FORCE_LINK)
+        AddDependency(
+            TARGET ${ARG_TARGET}
+            DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}"
+            INC_PATH "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}/${ARG_INC_PATH}"
+        )
+    else()
+        AddDependency(
+            TARGET ${ARG_TARGET}
+            DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}"
+            INC_PATH "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}/${ARG_INC_PATH}"
+            FORCE
+        )
     endif()
-
-    AddDependency(
-        TARGET ${ARG_TARGET}
-        FORCE_DEPENDENCY ON
-        DEPENDENCY ${GITHUB_USER}_${GITHUB_REPO}
-        INC_PATH ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}/${ARG_INC_PATH}
-    )
 endfunction()
 
 function(AddDependency)
     cmake_parse_arguments(
         ARG
-        "FORCE_DEPENDENCY"
+        "FORCE"
         "TARGET;DEPENDENCY;INC_PATH"
         ""
         ${ARGN}
     )
 
-    if (NOT ARG_FORCE_DEPENDENCY)
+    if (NOT ARG_FORCE)
         set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
     else()
         set(${ARG_TARGET}_FORCE_DEPENDENCIES ${${ARG_TARGET}_FORCE_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
@@ -132,6 +155,7 @@ function(BuildNow)
     endforeach()
 
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
+        message("Links to ${dep}")
         target_link_libraries(${ARG_TARGET}
             PUBLIC ${dep}
         )
