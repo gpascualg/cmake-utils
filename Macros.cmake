@@ -6,7 +6,7 @@ function(RequireExternal)
         ARG
         "EXCLUDE;SKIP_BUILD;FORCE_LINK"
         "TARGET;MODULE;INC_PATH"
-        ""
+        "CONFIGURE_STEPS"
         ${ARGN}
     )
 
@@ -51,6 +51,27 @@ function(RequireExternal)
         set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/ CACHE INTERNAL "")
         set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/${ARG_INC_PATH} CACHE INTERNAL "")
     endif()
+
+    # Placeholder step, does nothing
+    ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO} STEP_-1)
+
+    set(I 0)
+    set(N -1)
+    foreach (step ${ARG_CONFIGURE_STEPS})
+        message("\tExternal ${GITHUB_USER}_${GITHUB_REPO} requires STEP_${I}")
+
+        string(REPLACE " " ";" STEP_LIST ${step})
+
+        ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO} STEP_${I}
+            COMMAND ${STEP_LIST}
+            DEPENDEES download STEP_${N}
+            DEPENDERS configure
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}
+        )
+
+        MATH(EXPR N "${I}")
+        MATH(EXPR I "${I} + 1")
+    endforeach()
 
     if (ARG_EXCLUDE)
         set_target_properties(${GITHUB_USER}_${GITHUB_REPO} PROPERTIES EXCLUDE_FROM_ALL TRUE)
@@ -126,6 +147,18 @@ function(AddToSources)
     set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
 endfunction()
 
+function(AddDefinition)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        "DEFINITIONS"
+        ${ARGN}
+    )
+
+    set(${ARG_TARGET}_DEFINES ${${ARG_TARGET}_DEFINES} ${ARG_DEFINITIONS} CACHE INTERNAL "")
+endfunction()
+
 function(BuildNow)
     cmake_parse_arguments(
         ARG
@@ -174,7 +207,7 @@ function(BuildNow)
     endif()
 
     set_target_properties(${ARG_TARGET} PROPERTIES
-        COMPILE_DEFINITIONS "${ARG_DEFINES}"
+        COMPILE_DEFINITIONS "${ARG_DEFINES};${${ARG_TARGET}_DEFINES}"
     )
 
     set_target_properties(${ARG_TARGET} PROPERTIES
@@ -187,6 +220,7 @@ endfunction()
 function(ResetAllTargets)
     foreach(target ${ALL_TARGETS})
         set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
+        set(${target}_DEFINES "" CACHE INTERNAL "")
         set(${target}_FORCE_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_SOURCES "" CACHE INTERNAL "")
         set(${target}_INCLUDE_DIRECTORIES "" CACHE INTERNAL "")
