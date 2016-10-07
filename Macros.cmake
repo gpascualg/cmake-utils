@@ -5,7 +5,7 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;FORCE_LINK"
-        "TARGET;MODULE;INC_PATH"
+        "TARGET;MODULE;INC_PATH;CONFIGURE_COMMAND"
         "CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -26,22 +26,29 @@ function(RequireExternal)
         set(ARG_INC_PATH "include")
     endif()
 
+    set(CONFIG_COMMAND "")
+    if (ARG_CONFIGURE_COMMAND)
+        string(REPLACE " " ";" CONFIG_COMMAND ${ARG_CONFIGURE_COMMAND})
+    endif()
+
     if (ARG_SKIP_BUILD)
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
             GIT_TAG ${GITHUB_TAB}
             PREFIX ${CMAKE_BINARY_DIR}/third_party
-            CONFIGURE_COMMAND ""
+            CONFIGURE_COMMAND ${CONFIG_COMMAND}
             BUILD_COMMAND ""
             INSTALL_COMMAND ""
             TEST_COMMAND ""
             UPDATE_COMMAND ""
         )
     else ()
+        message("CONFIG COMMAND: ${CONFIG_COMMAND}")
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
             GIT_TAG ${GITHUB_TAB}
             PREFIX ${CMAKE_BINARY_DIR}/third_party
+            CONFIGURE_COMMAND ${CONFIG_COMMAND}
             INSTALL_COMMAND ""
             TEST_COMMAND ""
             UPDATE_COMMAND ""
