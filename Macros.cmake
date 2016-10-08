@@ -43,7 +43,6 @@ function(RequireExternal)
             UPDATE_COMMAND ""
         )
     else ()
-        message("CONFIG COMMAND: ${CONFIG_COMMAND}")
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
             GIT_TAG ${GITHUB_TAB}
@@ -151,6 +150,7 @@ function(AddToSources)
     if(NOT ARG_INC_PATH)
         set(ARG_INC_PATH ${ARG_SRC_PATH})
     endif()
+
     set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
 endfunction()
 
@@ -169,7 +169,7 @@ endfunction()
 function(BuildNow)
     cmake_parse_arguments(
         ARG
-        "EXECUTABLE;STATIC_LIB;"
+        "EXECUTABLE;STATIC_LIB;SHARED_LIB;NO_PREFIX"
         "TARGET;BUILD_FUNC;OUTPUT_NAME;"
         "DEPENDENCIES;DEFINES"
         ${ARGN}
@@ -179,6 +179,8 @@ function(BuildNow)
         add_executable(${ARG_TARGET} ${${ARG_TARGET}_SOURCES})
     elseif (ARG_STATIC_LIB)
         add_library(${ARG_TARGET} STATIC ${${ARG_TARGET}_SOURCES})
+    elseif (ARG_SHARED_LIB)
+        add_library(${ARG_TARGET} SHARED ${${ARG_TARGET}_SOURCES})
     endif()
 
     foreach(dep ${ARG_DEPENDENCIES})
@@ -211,6 +213,12 @@ function(BuildNow)
         else()
             set(ARG_DEFINES ${ARG_DEFINES} NDEBUG)
         endif()
+    endif()
+
+    if (ARG_NO_PREFIX)
+        set_target_properties(${ARG_TARGET} PROPERTIES
+            PREFIX ""
+        )
     endif()
 
     set_target_properties(${ARG_TARGET} PROPERTIES
