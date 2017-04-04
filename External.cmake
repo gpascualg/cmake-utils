@@ -17,7 +17,7 @@ function(RequireExternal)
     string(REGEX MATCH "^([a-z]|[A-Z]|_|-|[0-9])+[^/]" GITHUB_USER ${ARG_MODULE})
     string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9])+[^:])" GITHUB_REPO ${ARG_MODULE})
     set(GITHUB_REPO ${CMAKE_MATCH_1})
-    string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9])+$)" GITHUB_TAG ${ARG_MODULE})
+    string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9]|.)+$)" GITHUB_TAG ${ARG_MODULE})
     set(GITHUB_TAG ${CMAKE_MATCH_1})
 
     message("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")

@@ -32,6 +32,7 @@ function(AddDependency)
     if (ARG_INC_PATH)
         AddToSources(
             TARGET ${ARG_TARGET}
+            INCLUDE
             INC_PATH ${ARG_INC_PATH}
         )
     endif()
@@ -40,7 +41,7 @@ endfunction()
 function(AddToSources)
     cmake_parse_arguments(
         ARG
-        ""
+        "INCLUDE"
         "TARGET;SRC_PATH;INC_PATH;"
         "GLOB_SEARCH"
         ${ARGN}
@@ -61,11 +62,26 @@ function(AddToSources)
         endforeach()
     endif()
 
-    # Add include dirs
-    if(NOT ARG_INC_PATH)
-        set(ARG_INC_PATH ${ARG_SRC_PATH})
-    endif()
+    if (ARG_INCLUDE)
+        # Add include dirs
+        if(NOT ARG_INC_PATH)
+            set(ARG_INC_PATH ${ARG_SRC_PATH})
+        endif()
 
+        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
+    endif()
+endfunction()
+
+function(AddToIncludes)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;INC_PATH;"
+        ""
+        ${ARGN}
+    )
+
+    # Add include dirs
     set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
 endfunction()
 
