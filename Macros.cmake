@@ -122,6 +122,24 @@ function(AddDependency)
     endif()
 endfunction()
 
+function(AddAllToSources)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        "DIRS;GLOB_SEARCH"
+        ${ARGN}
+    )
+
+    foreach (dir ${ARG_DIRS})
+        AddToSources(
+            TARGET ${ARG_TARGET}
+            SRC_PATH ${dir}
+            GLOB_SEARCH ${ARG_GLOB_SEARCH}
+        )
+    endforeach()
+endfunction()
+
 function(AddToSources)
     cmake_parse_arguments(
         ARG
