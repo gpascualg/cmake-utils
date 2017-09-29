@@ -60,12 +60,14 @@ function(AddToSources)
     cmake_parse_arguments(
         ARG
         "INCLUDE"
-        "TARGET;SRC_PATH;INC_PATH;"
+        "TARGET;SRC_PATH;INC_PATH;FOLDER_NAME"
         "GLOB_SEARCH"
         ${ARGN}
     )
 
     if (ARG_SRC_PATH)
+        set(TMP_SOURCES_INCLUDE "" CACHE INTERNAL "")
+
         # Add each file and extension
         foreach (ext ${ARG_GLOB_SEARCH})
             file(GLOB TMP_SOURCES ${ARG_SRC_PATH}/*${ext})
@@ -76,8 +78,14 @@ function(AddToSources)
                 set(TMP_INCLUDES "")
             endif()
 
+            set(TMP_SOURCES_INCLUDE ${TMP_SOURCES_INCLUDE} ${TMP_SOURCES} ${TMP_INCLUDES} CACHE INTERNAL "")
             set(${ARG_TARGET}_SOURCES ${${ARG_TARGET}_SOURCES} ${TMP_SOURCES} ${TMP_INCLUDES} CACHE INTERNAL "")
         endforeach()
+    endif()
+
+    if (ARG_FOLDER_NAME)
+        set(${ARG_TARGET}_FOLDERS ${${ARG_TARGET}_FOLDERS} ${ARG_FOLDER_NAME} CACHE INTERNAL "")
+        set(${ARG_TARGET}_FOLDERS_${ARG_FOLDER_NAME} ${TMP_SOURCES_INCLUDE} CACHE INTERNAL "")
     endif()
 
     if (ARG_INCLUDE)
@@ -154,6 +162,10 @@ function(BuildNow)
 
     foreach (dep ${${ARG_TARGET}_FORCE_DEPENDENCIES})
         add_dependencies(${ARG_TARGET} ${dep})
+    endforeach()
+
+    foreach (folder ${${ARG_TARGET}_FOLDERS})
+        source_group(${folder} FILES ${${ARG_TARGET}_FOLDERS_${folder}})
     endforeach()
 
     if (UNIX)
