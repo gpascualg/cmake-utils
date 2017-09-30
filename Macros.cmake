@@ -217,6 +217,7 @@ function(ResetAllTargets)
         set(${target}_SOURCES "" CACHE INTERNAL "")
         set(${target}_INCLUDE_DIRECTORIES "" CACHE INTERNAL "")
         set(${target}_UNRESOLVED_EP "" CACHE INTERNAL "")
+        set(${target}_FOLDERS "" CACHE INTERNAL "")
     endforeach()
 
     set(ALL_TARGETS "" CACHE INTERNAL "")
