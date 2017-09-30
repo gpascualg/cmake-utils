@@ -193,6 +193,22 @@ function(BuildNow)
     CreateTarget(TARGET ${ARG_TARGET})
 endfunction()
 
+function(WarningAll)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        ""
+        ${ARGN}
+    )
+
+    if(MSVC)
+        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "/W4")
+    elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "-Wall -Wno-long-long -pedantic")
+    endif()
+endfunction()
+
 function(ResetAllTargets)
     foreach(target ${ALL_TARGETS})
         set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
