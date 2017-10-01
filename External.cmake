@@ -26,17 +26,26 @@ function(RequireExternal)
         set(ARG_INC_PATH "include")
     endif()
 
+    set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
+
+    if (OVERRIDE_THIRD_PARTY)
+        set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}")
+
+        if (EXISTS ${OVERRIDE_THIRD_PARTY}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
+            # It already exists
+            set(THIRD_PARTY_ALREADY_EXISTS ON)
+
+            # Placeholder target
+            add_custom_target(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
+        endif()
+    endif()
+
     # It might have already been referenced by a subproject, do not pull more than once!
-    if (NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
+    if (NOT THIRD_PARTY_ALREADY_EXISTS AND NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
         if (NOT ARG_SKIP_BUILD)
             # Add build directory to include
-            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
-            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_INC_PATH} CACHE INTERNAL "")
-        endif()
-
-        set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
-        if (OVERRIDE_THIRD_PARTY)
-            set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}" PARENT_SCOPE)
+            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
+            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_INC_PATH} CACHE INTERNAL "")
         endif()
 
         if (ARG_SKIP_BUILD)
@@ -87,7 +96,7 @@ function(RequireExternal)
                 COMMAND ${STEP_LIST}
                 DEPENDEES download STEP_${N}
                 DEPENDERS configure
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                WORKING_DIRECTORY ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
             )
 
             MATH(EXPR N "${I}")
@@ -101,8 +110,8 @@ function(RequireExternal)
 
     # Manually link!
     if (ARG_LINK_SUBDIR AND ARG_LINK_NAME)
-        #set(${ARG_TARGET}_LINK_DIRS ${${ARG_TARGET}_LINK_DIRS} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR} CACHE INTERNAL "")
-        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME} HINTS ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR})
+        #set(${ARG_TARGET}_LINK_DIRS ${${ARG_TARGET}_LINK_DIRS} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR} CACHE INTERNAL "")
+        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME} HINTS ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR})
 
         AddDependency(
             TARGET ${ARG_TARGET}
@@ -114,7 +123,7 @@ function(RequireExternal)
     AddDependency(
         TARGET ${ARG_TARGET}
         DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}"
-        INC_PATH "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_INC_PATH}"
+        INC_PATH "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_INC_PATH}"
         SKIP_LINK
     )
 
@@ -124,7 +133,7 @@ function(RequireExternal)
 
     if (NOT ARG_SKIP_BUILD)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
-        if (EXISTS "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
+        if (EXISTS "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
             set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
         endif()
     else()
