@@ -116,14 +116,37 @@ function(RequireExternal)
         find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME}
             HINTS
                 ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}
+        )
+        if (${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY)
+            AddDependency(
+                TARGET ${ARG_TARGET}
+                DEPENDENCY ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY}
+            )
+        endif()
+
+        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_DEBUG_LIBRARY ${ARG_LINK_NAME}
+            HINTS
                 ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}/Debug
+        )
+        if (${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_DEBUG_LIBRARY)
+            AddDependency(
+                TARGET ${ARG_TARGET}
+                DEBUG
+                DEPENDENCY ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_DEBUG_LIBRARY}
+            )
+        endif()
+
+        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_OPTIMIZED_LIBRARY ${ARG_LINK_NAME}
+            HINTS
                 ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}/Release
         )
-
-        AddDependency(
-            TARGET ${ARG_TARGET}
-            DEPENDENCY ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY}
-        )
+        if (${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_OPTIMIZED_LIBRARY)
+            AddDependency(
+                TARGET ${ARG_TARGET}
+                OPTIMIZED
+                DEPENDENCY ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_OPTIMIZED_LIBRARY}
+            )
+        endif()
     endif()
 
     # Add dependency

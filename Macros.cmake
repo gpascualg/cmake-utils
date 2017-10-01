@@ -17,14 +17,20 @@ endfunction()
 function(AddDependency)
     cmake_parse_arguments(
         ARG
-        "SKIP_LINK"
+        "SKIP_LINK;DEBUG;OPTIMIZED"
         "TARGET;DEPENDENCY;INC_PATH"
         ""
         ${ARGN}
     )
 
     if (NOT ARG_SKIP_LINK)
-        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+        if (ARG_DEBUG)
+            set(${ARG_TARGET}_DEBUG_DEPENDENCIES ${${ARG_TARGET}_DEBUG_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+        elseif (ARG_OPTIMIZED)
+            set(${ARG_TARGET}_OPTIMIZED_DEPENDENCIES ${${ARG_TARGET}_OPTIMIZED_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+        else()
+            set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+        endif()
     else()
         set(${ARG_TARGET}_FORCE_DEPENDENCIES ${${ARG_TARGET}_FORCE_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
     endif()
@@ -132,7 +138,7 @@ function(RecursiveDependencies)
         ""
         ${ARGN}
     )
-    
+
     foreach(dir ${${ARG_DEPENDENCY}_LINK_DIRS})
         message("Linking ${ARG_TARGET} to dir ${dir}")
         link_directories(${dir})
@@ -143,7 +149,7 @@ function(RecursiveDependencies)
         target_link_libraries(${ARG_TARGET}
             PUBLIC ${dep}
         )
-        
+
         RecursiveDependencies(
             TARGET ${ARG_TARGET}
             DEPNDENCY ${dep}
@@ -195,6 +201,20 @@ function(BuildNow)
         RecursiveDependencies(
             TARGET ${ARG_TARGET}
             DEPENDENCY ${dep}
+        )
+    endforeach()
+
+    foreach (dep ${${ARG_TARGET}_DEBUG_DEPENDENCIES})
+        message("${ARG_TARGET} links to debug ${dep}")
+        target_link_libraries(${ARG_TARGET}
+            PUBLIC debug ${dep}
+        )
+    endforeach()
+
+    foreach (dep ${${ARG_TARGET}_OPTIMIZED_DEPENDENCIES})
+        message("${ARG_TARGET} links to optimized ${dep}")
+        target_link_libraries(${ARG_TARGET}
+            PUBLIC optimized ${dep}
         )
     endforeach()
 
@@ -252,6 +272,8 @@ function(ResetAllTargets)
         set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_LINK_DIRS "" CACHE INTERNAL "")
         set(${target}_DEFINES "" CACHE INTERNAL "")
+        set(${target}_DEBUG_DEPENDENCIES "" CACHE INTERNAL "")
+        set(${target}_OPTIMIZED_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_FORCE_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_SOURCES "" CACHE INTERNAL "")
         set(${target}_INCLUDE_DIRECTORIES "" CACHE INTERNAL "")
