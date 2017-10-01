@@ -4,7 +4,7 @@ include(ExternalProject)
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;"
+        "EXCLUDE;SKIP_BUILD;ENSURE_ORDER"
         "TARGET;MODULE;INC_PATH;CONFIGURE_COMMAND;LINK_SUBDIR;LINK_NAME"
         "CONFIGURE_STEPS"
         ${ARGN}
@@ -118,6 +118,10 @@ function(RequireExternal)
         SKIP_LINK
     )
 
+    if (ARG_ENSURE_ORDER)
+        add_dependencies(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} ${Shinzui_ALL_EP})
+    endif()
+
     if (NOT ARG_SKIP_BUILD)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
         if (EXISTS "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
@@ -133,7 +137,7 @@ function(RequireExternal)
         set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")
     endif()
 
-    set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")    
+    set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")
 endfunction()
 
 function(ResolveExternal)
