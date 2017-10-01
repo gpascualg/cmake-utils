@@ -35,7 +35,7 @@ function(RequireExternal)
     if (ARG_SKIP_BUILD)
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAB}
+            GIT_TAG ${GITHUB_TAG}
             PREFIX ${CMAKE_BINARY_DIR}/third_party
             CONFIGURE_COMMAND ""
             BUILD_COMMAND ""
@@ -48,7 +48,7 @@ function(RequireExternal)
 
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAB}
+            GIT_TAG ${GITHUB_TAG}
             PREFIX ${CMAKE_BINARY_DIR}/third_party
             CONFIGURE_COMMAND "${CONFIG_COMMAND}"
             INSTALL_COMMAND ""
@@ -58,7 +58,7 @@ function(RequireExternal)
     else()
         ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
             GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAB}
+            GIT_TAG ${GITHUB_TAG}
             PREFIX ${CMAKE_BINARY_DIR}/third_party
             INSTALL_COMMAND ""
             TEST_COMMAND ""
@@ -119,6 +119,8 @@ function(RequireExternal)
     if (NOT ${GITHUB_USER}_${GITHUB_REPO}_FOUND)
         set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO} CACHE INTERNAL "")
     endif()
+
+    set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO} CACHE INTERNAL "")    
 endfunction()
 
 function(ResolveExternal)
@@ -143,7 +145,7 @@ function(ResolveExternal)
             )
         endif()
 
-        add_custom_target(BuildDeps_${NEXT_REBUILD} ALL DEPENDS ${${ARG_TARGET}_UNRESOLVED_EP})
+        add_custom_target(BuildDeps_${NEXT_REBUILD} ALL DEPENDS ${${ARG_TARGET}_ALL_EP})
         add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
         set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
         message("${ARG_TARGET} NOT RESOLVED")
