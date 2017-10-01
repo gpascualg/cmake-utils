@@ -123,6 +123,34 @@ function(AddDefinition)
     set(${ARG_TARGET}_DEFINES ${${ARG_TARGET}_DEFINES} ${ARG_DEFINITIONS} CACHE INTERNAL "")
 endfunction()
 
+# TODO(gpascual): Might not be needed at all, considering all target_link_libraries are PUBLIC
+function(RecursiveDependencies)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;DEPENDENCY;"
+        ""
+        ${ARGN}
+    )
+    
+    foreach(dir ${${ARG_DEPENDENCY}_LINK_DIRS})
+        message("Linking ${ARG_TARGET} to dir ${dir}")
+        link_directories(${dir})
+    endforeach()
+
+    foreach (dep ${${ARG_DEPENDENCY}_DEPENDENCIES})
+        message("${ARG_TARGET} links to ${dep}")
+        target_link_libraries(${ARG_TARGET}
+            PUBLIC ${dep}
+        )
+        
+        RecursiveDependencies(
+            TARGET ${ARG_TARGET}
+            DEPNDENCY ${dep}
+        )
+    endforeach()
+endfunction()
+
 function(BuildNow)
     cmake_parse_arguments(
         ARG
@@ -131,6 +159,11 @@ function(BuildNow)
         "DEPENDENCIES;DEFINES"
         ${ARGN}
     )
+
+    foreach(dir ${${ARG_TARGET}_LINK_DIRS})
+        message("Linking ${ARG_TARGET} to dir ${dir}")
+        link_directories(${dir})
+    endforeach()
 
     if (ARG_EXECUTABLE)
         add_executable(${ARG_TARGET} ${${ARG_TARGET}_SOURCES})
@@ -157,6 +190,11 @@ function(BuildNow)
         message("${ARG_TARGET} links to ${dep}")
         target_link_libraries(${ARG_TARGET}
             PUBLIC ${dep}
+        )
+
+        RecursiveDependencies(
+            TARGET ${ARG_TARGET}
+            DEPENDENCY ${dep}
         )
     endforeach()
 
@@ -212,6 +250,7 @@ endfunction()
 function(ResetAllTargets)
     foreach(target ${ALL_TARGETS})
         set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
+        set(${target}_LINK_DIRS "" CACHE INTERNAL "")
         set(${target}_DEFINES "" CACHE INTERNAL "")
         set(${target}_FORCE_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_SOURCES "" CACHE INTERNAL "")

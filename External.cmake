@@ -4,14 +4,14 @@ include(ExternalProject)
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_LINK"
-        "TARGET;MODULE;INC_PATH;CONFIGURE_COMMAND"
+        "EXCLUDE;SKIP_BUILD;"
+        "TARGET;MODULE;INC_PATH;CONFIGURE_COMMAND;LINK_SUBDIR;LINK_NAME"
         "CONFIGURE_STEPS"
         ${ARGN}
     )
 
     if (NOT ARG_MODULE)
-        message(FATAL_ERROR "Boost module not specified")
+        message(FATAL_ERROR "External module not specified")
     endif()
 
     string(REGEX MATCH "^([a-z]|[A-Z]|_|-|[0-9])+[^/]" GITHUB_USER ${ARG_MODULE})
@@ -26,101 +26,109 @@ function(RequireExternal)
         set(ARG_INC_PATH "include")
     endif()
 
-    if (NOT ARG_SKIP_BUILD)
-        # Add build directory to include
-        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/ CACHE INTERNAL "")
-        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}-build/${ARG_INC_PATH} CACHE INTERNAL "")
+    # It might have already been referenced by a subproject, do not pull more than once!
+    if (NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
+        if (NOT ARG_SKIP_BUILD)
+            # Add build directory to include
+            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
+            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_INC_PATH} CACHE INTERNAL "")
+        endif()
+
+        if (ARG_SKIP_BUILD)
+            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+                GIT_TAG ${GITHUB_TAG}
+                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                CONFIGURE_COMMAND ""
+                BUILD_COMMAND ""
+                INSTALL_COMMAND ""
+                TEST_COMMAND ""
+                UPDATE_COMMAND ""
+            )
+        elseif (ARG_CONFIGURE_COMMAND)
+            string(REPLACE " " ";" CONFIG_COMMAND ${ARG_CONFIGURE_COMMAND})
+
+            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+                GIT_TAG ${GITHUB_TAG}
+                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                CONFIGURE_COMMAND "${CONFIG_COMMAND}"
+                INSTALL_COMMAND ""
+                TEST_COMMAND ""
+                UPDATE_COMMAND ""
+            )
+        else()
+            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+                GIT_TAG ${GITHUB_TAG}
+                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                INSTALL_COMMAND ""
+                TEST_COMMAND ""
+                UPDATE_COMMAND ""
+            )
+        endif()
+
+        # Placeholder step, does nothing
+        ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} STEP_-1)
+
+        set(I 0)
+        set(N -1)
+        foreach (step ${ARG_CONFIGURE_STEPS})
+            message("\tExternal ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} requires STEP_${I}")
+
+            string(REPLACE " " ";" STEP_LIST ${step})
+
+            ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} STEP_${I}
+                COMMAND ${STEP_LIST}
+                DEPENDEES download STEP_${N}
+                DEPENDERS configure
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+            )
+
+            MATH(EXPR N "${I}")
+            MATH(EXPR I "${I} + 1")
+        endforeach()
+
+        if (ARG_EXCLUDE)
+            set_target_properties(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+        endif()
     endif()
 
-    if (ARG_SKIP_BUILD)
-        ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
-            GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAG}
-            PREFIX ${CMAKE_BINARY_DIR}/third_party
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND ""
-            UPDATE_COMMAND ""
+    # Manually link!
+    if (ARG_LINK_SUBDIR AND ARG_LINK_NAME)
+        #set(${ARG_TARGET}_LINK_DIRS ${${ARG_TARGET}_LINK_DIRS} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR} CACHE INTERNAL "")
+        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME} HINTS ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR})
+
+        AddDependency(
+            TARGET ${ARG_TARGET}
+            DEPENDENCY ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY}
         )
-    elseif (ARG_CONFIGURE_COMMAND)
-        string(REPLACE " " ";" CONFIG_COMMAND ${ARG_CONFIGURE_COMMAND})
-
-        ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
-            GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAG}
-            PREFIX ${CMAKE_BINARY_DIR}/third_party
-            CONFIGURE_COMMAND "${CONFIG_COMMAND}"
-            INSTALL_COMMAND ""
-            TEST_COMMAND ""
-            UPDATE_COMMAND ""
-        )
-    else()
-        ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}
-            GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-            GIT_TAG ${GITHUB_TAG}
-            PREFIX ${CMAKE_BINARY_DIR}/third_party
-            INSTALL_COMMAND ""
-            TEST_COMMAND ""
-            UPDATE_COMMAND ""
-        )
-    endif()
-
-    # Placeholder step, does nothing
-    ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO} STEP_-1)
-
-    set(I 0)
-    set(N -1)
-    foreach (step ${ARG_CONFIGURE_STEPS})
-        message("\tExternal ${GITHUB_USER}_${GITHUB_REPO} requires STEP_${I}")
-
-        string(REPLACE " " ";" STEP_LIST ${step})
-
-        ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO} STEP_${I}
-            COMMAND ${STEP_LIST}
-            DEPENDEES download STEP_${N}
-            DEPENDERS configure
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}
-        )
-
-        MATH(EXPR N "${I}")
-        MATH(EXPR I "${I} + 1")
-    endforeach()
-
-    if (ARG_EXCLUDE)
-        set_target_properties(${GITHUB_USER}_${GITHUB_REPO} PROPERTIES EXCLUDE_FROM_ALL TRUE)
-    endif()
-
-    # Skip linking
-    set(DO_SKIP_LINK "")
-    if (ARG_SKIP_LINK)
-        set(DO_SKIP_LINK "SKIP_LINK")
     endif()
 
     # Add dependency
     AddDependency(
         TARGET ${ARG_TARGET}
-        DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}"
-        INC_PATH "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}/${ARG_INC_PATH}"
-        ${DO_SKIP_LINK}
+        DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}"
+        INC_PATH "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_INC_PATH}"
+        SKIP_LINK
     )
 
     if (NOT ARG_SKIP_BUILD)
-        set(${GITHUB_USER}_${GITHUB_REPO}_FOUND FALSE CACHE INTERNAL "")
-        if (EXISTS "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}/CMakeLists.txt")
-            set(${GITHUB_USER}_${GITHUB_REPO}_FOUND TRUE CACHE INTERNAL "")
+        set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
+        if (EXISTS "${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
+            set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
         endif()
     else()
-        set(${GITHUB_USER}_${GITHUB_REPO}_FOUND TRUE CACHE INTERNAL "")
+        set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
     endif()
 
-    #message("\t${GITHUB_USER}_${GITHUB_REPO} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_FOUND}")
+    #message("\t${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND}")
 
-    if (NOT ${GITHUB_USER}_${GITHUB_REPO}_FOUND)
-        set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO} CACHE INTERNAL "")
+    if (NOT ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND)
+        set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")
     endif()
 
-    set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO} CACHE INTERNAL "")    
+    set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")    
 endfunction()
 
 function(ResolveExternal)
