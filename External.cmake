@@ -36,7 +36,7 @@ function(RequireExternal)
 
         set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
         if (OVERRIDE_THIRD_PARTY)
-            set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}" PARENT_SCOPE)
+            set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}")
         endif()
 
         if (ARG_SKIP_BUILD)
