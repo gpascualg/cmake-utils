@@ -34,11 +34,16 @@ function(RequireExternal)
             set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${CMAKE_BINARY_DIR}/third_party/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_INC_PATH} CACHE INTERNAL "")
         endif()
 
+        set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
+        if (OVERRIDE_THIRD_PARTY)
+            set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}" PARENT_SCOPE)
+        endif()
+
         if (ARG_SKIP_BUILD)
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
                 GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
                 GIT_TAG ${GITHUB_TAG}
-                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                PREFIX ${THIRD_PARTY_PREFIX}
                 CONFIGURE_COMMAND ""
                 BUILD_COMMAND ""
                 INSTALL_COMMAND ""
@@ -51,7 +56,7 @@ function(RequireExternal)
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
                 GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
                 GIT_TAG ${GITHUB_TAG}
-                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                PREFIX ${THIRD_PARTY_PREFIX}
                 CONFIGURE_COMMAND "${CONFIG_COMMAND}"
                 INSTALL_COMMAND ""
                 TEST_COMMAND ""
@@ -61,7 +66,7 @@ function(RequireExternal)
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
                 GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
                 GIT_TAG ${GITHUB_TAG}
-                PREFIX ${CMAKE_BINARY_DIR}/third_party
+                PREFIX ${THIRD_PARTY_PREFIX}
                 INSTALL_COMMAND ""
                 TEST_COMMAND ""
                 UPDATE_COMMAND ""
