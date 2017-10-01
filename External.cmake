@@ -5,8 +5,8 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;ENSURE_ORDER"
-        "TARGET;MODULE;INC_PATH;CONFIGURE_COMMAND;LINK_SUBDIR;LINK_NAME"
-        "CONFIGURE_STEPS"
+        "TARGET;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME"
+        "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
 
@@ -59,14 +59,17 @@ function(RequireExternal)
                 TEST_COMMAND ""
                 UPDATE_COMMAND ""
             )
-        elseif (ARG_CONFIGURE_COMMAND)
-            string(REPLACE " " ";" CONFIG_COMMAND ${ARG_CONFIGURE_COMMAND})
+        elseif (ARG_CONFIGURE_ARGUMENTS)
+            set(CONFIG_COMMAND "${CMAKE_COMMAND}")
+            list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
+            list(APPEND CONFIG_COMMAND -G "${CMAKE_GENERATOR}")
+            list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}")
 
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
                 GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
                 GIT_TAG ${GITHUB_TAG}
                 PREFIX ${THIRD_PARTY_PREFIX}
-                CONFIGURE_COMMAND "${CONFIG_COMMAND}"
+                CONFIGURE_COMMAND ${CONFIG_COMMAND}
                 INSTALL_COMMAND ""
                 TEST_COMMAND ""
                 UPDATE_COMMAND ""
@@ -110,8 +113,12 @@ function(RequireExternal)
 
     # Manually link!
     if (ARG_LINK_SUBDIR AND ARG_LINK_NAME)
-        #set(${ARG_TARGET}_LINK_DIRS ${${ARG_TARGET}_LINK_DIRS} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR} CACHE INTERNAL "")
-        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME} HINTS ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR})
+        find_library(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_LIBRARY ${ARG_LINK_NAME}
+            HINTS
+                ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}
+                ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}/Debug
+                ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_LINK_SUBDIR}/Release
+        )
 
         AddDependency(
             TARGET ${ARG_TARGET}
