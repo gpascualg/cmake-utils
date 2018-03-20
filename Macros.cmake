@@ -44,6 +44,54 @@ function(AddDependency)
     endif()
 endfunction()
 
+function(AddPackage)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;PACKAGE"
+        ""
+        ${ARGN}
+    )
+
+    find_package(${ARG_PACKAGE} REQUIRED)
+    string(TOUPPER ${ARG_PACKAGE} LIBNAME)
+
+    if (${LIBNAME}_LIBRARY)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${LIBNAME}_LIBRARY})
+    elseif (${LIBNAME}_LIBRARIES)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${LIBNAME}_LIBRARIES})
+    elseif (${ARG_PACKAGE}_LIBRARY)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
+    elseif (${ARG_PACKAGE}_LIBRARIES)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
+    else ()
+        message(FATAL_ERROR "Could not find package ${ARG_PACKAGE} libraries")
+    endif()
+endfunction()
+
+
+function(AddLibrary)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;LIBRARY"
+        "HINTS"
+        ${ARGN}
+    )
+
+    if (ARG_HINTS)
+        find_library(OUTPUT_LIB ${ARG_LIBRARY} HINTS ${ARG_HINTS})
+    else()
+        find_library(OUTPUT_LIB ${ARG_LIBRARY})
+    endif()
+    
+    if (OUTPUT_LIB)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${OUTPUT_LIB})
+    else()
+        message(FATAL_ERROR "Could not find library ${ARG_LIBRARY}")
+    endif()
+endfunction()
+
 function(AddAllToSources)
     cmake_parse_arguments(
         ARG
