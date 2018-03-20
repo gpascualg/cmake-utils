@@ -59,7 +59,7 @@ function(RequireExternal)
                 TEST_COMMAND ""
                 UPDATE_COMMAND ""
             )
-        elseif (ARG_CONFIGURE_ARGUMENTS)
+        else()
             set(CONFIG_COMMAND "${CMAKE_COMMAND}")
             list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
             list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
@@ -73,22 +73,6 @@ function(RequireExternal)
                 CONFIGURE_COMMAND ${CONFIG_COMMAND}
                 INSTALL_COMMAND ""
                 TEST_COMMAND ""
-                UPDATE_COMMAND ""
-            )
-        else()
-            set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-            list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-            list(APPEND CONFIG_COMMAND -G "${CMAKE_GENERATOR}")
-            list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}")
-
-            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-                GIT_TAG ${GITHUB_TAG}
-                PREFIX ${THIRD_PARTY_PREFIX}
-                CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                INSTALL_COMMAND ""
-                TEST_COMMAND ""
-                UPDATE_COMMAND ""
             )
         endif()
 

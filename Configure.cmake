@@ -1,5 +1,5 @@
 # -[ Export build
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Output compile commands for rtag or alike")
 
 function(CopyCommands)
     if (UNIX)
