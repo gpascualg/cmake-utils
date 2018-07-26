@@ -74,10 +74,15 @@ function(AddLibrary)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;LIBRARY"
+        "TARGET;LIBRARY;PLATFORM"
         "HINTS"
         ${ARGN}
     )
+
+    if (ARG_PLATFORM AND NOT ${ARG_PLATFORM})
+        message ("${ARG_TARGET} not linking to ${ARG_LIBRARY} due to platform mismatch (${ARG_PLATFORM})")
+        return()
+    endif()
 
     if (ARG_HINTS)
         find_library(OUTPUT_LIB ${ARG_LIBRARY} HINTS ${ARG_HINTS})
@@ -208,7 +213,7 @@ endfunction()
 function(BuildNow)
     cmake_parse_arguments(
         ARG
-        "EXECUTABLE;STATIC_LIB;SHARED_LIB;NO_PREFIX"
+        "EXECUTABLE;STATIC_LIB;SHARED_LIB;NO_PREFIX;C++11"
         "TARGET;BUILD_FUNC;OUTPUT_NAME;"
         "DEPENDENCIES;DEFINES"
         ${ARGN}
@@ -227,6 +232,10 @@ function(BuildNow)
         add_library(${ARG_TARGET} SHARED ${${ARG_TARGET}_SOURCES})
     endif()
 
+    if (ARG_C++11)
+        set_property(TARGET ${ARG_TARGET} PROPERTY CXX_STANDARD 11)
+    endif()
+
     foreach(dep ${ARG_DEPENDENCIES})
         RequireExternal(
             TARGET ${ARG_TARGET}
@@ -234,10 +243,23 @@ function(BuildNow)
         )
     endforeach()
 
+    # Include installed dependencies
+    ExternalInstallDirectory(VARIABLE "EXTERNAL_DEPENDENCIES")
+    target_include_directories(${ARG_TARGET} PUBLIC ${EXTERNAL_DEPENDENCIES}/include)
+
     foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
-        target_include_directories(${ARG_TARGET}
-            PUBLIC ${dir}
-        )
+        string(FIND ${PROJECT_SOURCE_DIR} ${dir} INTERNAL_INCLUDE)
+        string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_INTERNAL)
+        
+        if (IS_INTERNAL)
+            target_include_directories(${ARG_TARGET}
+                PRIVATE ${dir}
+            )
+        else()
+            target_include_directories(${ARG_TARGET}
+                PUBLIC ${dir}
+            )
+        endif()
     endforeach()
 
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
@@ -297,6 +319,48 @@ function(BuildNow)
     )
 
     CreateTarget(TARGET ${ARG_TARGET})
+endfunction()
+
+function(MakeInstallable)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        ""
+        ${ARGN}
+    )
+
+    string(TOLOWER ${ARG_TARGET} TARGET_LOWER)
+
+    include(CMakePackageConfigHelpers)
+	set(config_install_dir lib/cmake/${TARGET_LOWER})
+	set(version_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config-version.cmake)
+	set(project_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config.cmake)
+    set(targets_export_name ${TARGET_LOWER}-targets)
+    
+    write_basic_package_version_file(
+	  ${version_config}
+	  VERSION 0.0.1
+	  COMPATIBILITY AnyNewerVersion)
+	configure_package_config_file(
+	  ${PROJECT_SOURCE_DIR}/config.cmake.in
+	  ${project_config}
+	  INSTALL_DESTINATION ${config_install_dir})
+	export(TARGETS ${ARG_TARGET} FILE ${PROJECT_BINARY_DIR}/${targets_export_name}.cmake)
+
+	install(TARGETS ${ARG_TARGET}
+		EXPORT ${targets_export_name}
+		RUNTIME DESTINATION bin/
+	  	LIBRARY DESTINATION lib/
+        ARCHIVE DESTINATION lib/)
+
+    install(FILES ${project_config} ${version_config} DESTINATION ${config_install_dir})
+    install(EXPORT ${targets_export_name} DESTINATION ${config_install_dir})
+
+    if (EXISTS ${PROJECT_SOURCE_DIR}/include)
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/include DESTINATION .)
+    endif()
+      
 endfunction()
 
 function(WarningAll)

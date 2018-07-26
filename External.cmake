@@ -58,7 +58,7 @@ endfunction()
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_INSTALL;ENSURE_ORDER"
+        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;ENSURE_ORDER;INSTALL_INCLUDE"
         "TARGET;URL;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
@@ -119,28 +119,44 @@ function(RequireExternal)
         endif()
 
         if (NOT ARG_SKIP_INSTALL)
-            set(INSTALL_COMMAND ${ARG_INSTALL_COMMAND})
+            # TODO: Auto-scan directory for include/ if not building
+            if (ARG_INSTALL_INCLUDE)
+                set(INSTALL_COMMAND "${CMAKE_COMMAND}")
+                list(APPEND INSTALL_COMMAND -E copy_directory)
+                list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
+                list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
+            else()
+                if (ARG_INSTALL_COMMAND)
+                    set(INSTALL_COMMAND ${ARG_INSTALL_COMMAND})
+                else()
+                    set(INSTALL_COMMAND "${CMAKE_COMMAND}" "--build" "." "--target" "install")
+                endif()
+            endif()
         else()
-            set(INSTALL_COMMAND INSTALL_COMMAND "")
+            set(INSTALL_COMMAND "echo") # TODO: Find a better no-op
         endif()
 
         if (NOT ARG_SKIP_BUILD)
-            set(BUILD_COMMAND "")
-            set(UPDATE_COMMAND "")
+            set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" ".")
+            set(UPDATE_COMMAND "git" "fetch")
         else()
-            set(BUILD_COMMAND BUILD_COMMAND "")
-            set(UPDATE_COMMAND UPDATE_COMMAND "")
+            set(BUILD_COMMAND "echo")   # TODO: Find a better no-op
+            set(UPDATE_COMMAND "echo")  # TODO: Find a better no-op
         endif()
 
-        set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-        if (ARG_CONFIGURE_ARGUMENTS)
-            list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
+        if (NOT ARG_SKIP_CONFIGURE)
+            set(CONFIG_COMMAND "${CMAKE_COMMAND}")
+            if (ARG_CONFIGURE_ARGUMENTS)
+                list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
+            endif()
+            list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_PREFIX=${THIRD_PARTY_PREFIX}")
+            list(APPEND CONFIG_COMMAND "-DOVERRIDE_THIRD_PARTY=${THIRD_PARTY_PREFIX}")
+            list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+            list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
+            list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
+        else()
+            set(CONFIG_COMMAND "echo") # TODO: Find a better no-op
         endif()
-        list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_PREFIX=${THIRD_PARTY_PREFIX}")
-        list(APPEND CONFIG_COMMAND "-DOVERRIDE_THIRD_PARTY=${THIRD_PARTY_PREFIX}")
-        list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-        list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
-        list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
 
         if (ARG_MODULE)
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
@@ -148,9 +164,9 @@ function(RequireExternal)
                 GIT_TAG ${GITHUB_TAG}
                 PREFIX ${THIRD_PARTY_PREFIX}
                 CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                ${BUILD_COMMAND}
-                ${INSTALL_COMMAND}
-                ${UPDATE_COMMAND} 
+                BUILD_COMMAND ${BUILD_COMMAND}
+                INSTALL_COMMAND ${INSTALL_COMMAND}
+                UPDATE_COMMAND ${UPDATE_COMMAND} 
                 TEST_COMMAND ""
             )
         elseif(ARG_URL)
@@ -158,9 +174,9 @@ function(RequireExternal)
                 URL ${ARG_URL}
                 PREFIX ${THIRD_PARTY_PREFIX}
                 CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                ${BUILD_COMMAND}
-                ${INSTALL_COMMAND}
-                ${UPDATE_COMMAND} 
+                BUILD_COMMAND ${BUILD_COMMAND}
+                INSTALL_COMMAND ${INSTALL_COMMAND}
+                UPDATE_COMMAND ${UPDATE_COMMAND} 
                 TEST_COMMAND ""
             )
         endif()
