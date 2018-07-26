@@ -59,7 +59,7 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;SKIP_INSTALL;ENSURE_ORDER"
-        "TARGET;URL;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR"
+        "TARGET;URL;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -119,7 +119,7 @@ function(RequireExternal)
         endif()
 
         if (NOT ARG_SKIP_INSTALL)
-            set(INSTALL_COMMAND "")
+            set(INSTALL_COMMAND ${ARG_INSTALL_COMMAND})
         else()
             set(INSTALL_COMMAND INSTALL_COMMAND "")
         endif()
