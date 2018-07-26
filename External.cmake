@@ -97,17 +97,19 @@ function(RequireExternal)
     if (OVERRIDE_THIRD_PARTY)
         set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}")
 
-        if (EXISTS ${OVERRIDE_THIRD_PARTY}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
-            # It already exists
-            set(THIRD_PARTY_ALREADY_EXISTS ON)
+        # TODO: Do we really need this? If its already built, then that's it
+        # if (EXISTS ${OVERRIDE_THIRD_PARTY}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
+        #     # It already exists
+        #     set(THIRD_PARTY_ALREADY_EXISTS ON)
 
-            # Placeholder target
-            add_custom_target(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
-        endif()
+        #     # Placeholder target
+        #     add_custom_target(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
+        # endif()
     endif()
 
     # It might have already been referenced by a subproject, do not pull more than once!
-    if (NOT THIRD_PARTY_ALREADY_EXISTS AND NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
+    # TODO: Removed "NOT THIRD_PARTY_ALREADY_EXISTS AND ", is it r
+    if (NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
         if (NOT ARG_SKIP_BUILD)
             # Add build directory to include
             set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
@@ -205,6 +207,8 @@ function(RequireExternal)
         if (ARG_EXCLUDE)
             set_target_properties(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} PROPERTIES EXCLUDE_FROM_ALL TRUE)
         endif()
+    else()
+        message(" > Skipping")
     endif()
 
     # Manually link!
@@ -290,16 +294,16 @@ function(ResolveExternal)
 
         MATH(EXPR NEXT_REBUILD "${REBUILD_COUNT} + 1")
         if ("${REBUILD_COUNT}" MATCHES "0")
-            add_custom_target(Rebuild ALL
-                ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
-                COMMAND ${CMAKE_COMMAND} --build .
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
+            # add_custom_target(Rebuild ALL
+            #     ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
+            #     COMMAND ${CMAKE_COMMAND} --build .
+            #     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            # )
         endif()
 
         add_custom_target(BuildDeps_${NEXT_REBUILD} ALL DEPENDS ${${ARG_TARGET}_ALL_EP})
-        add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
-        set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
+        # add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
+        # set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
         message("${ARG_TARGET} NOT RESOLVED")
     else()
         set(${ARG_TARGET}_IS_RESOLVED TRUE PARENT_SCOPE)
