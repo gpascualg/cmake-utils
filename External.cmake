@@ -1,10 +1,64 @@
 include(CMakeParseArguments)
 include(ExternalProject)
 
+function(ExternalInstallDirectory)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "VARIABLE"
+        ""
+        ${ARGN}
+    )
+
+    if (OVERRIDE_THIRD_PARTY)
+        set(${ARG_VARIABLE} "${OVERRIDE_THIRD_PARTY}" PARENT_SCOPE)
+    else()
+        set(${ARG_VARIABLE} "${CMAKE_BINARY_DIR}/third_party" PARENT_SCOPE)
+    endif()
+endfunction()
+
+function(ExternalDirectory)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "URL;MODULE;VARIABLE"
+        ""
+        ${ARGN}
+    )
+    
+    if (NOT ARG_MODULE AND NOT ARG_URL)
+        message(FATAL_ERROR "External module not specified")
+    endif()
+
+    if (ARG_MODULE)
+        string(REGEX MATCH "^([a-z]|[A-Z]|_|-|[0-9])+[^/]" GITHUB_USER ${ARG_MODULE})
+        string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9])+[^:])" GITHUB_REPO ${ARG_MODULE})
+        set(GITHUB_REPO ${CMAKE_MATCH_1})
+        string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9]|.)+$)" GITHUB_TAG ${ARG_MODULE})
+        set(GITHUB_TAG ${CMAKE_MATCH_1})
+
+        message("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
+    elseif (ARG_URL)
+        string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9]|[.])+)([.])([a-z]|[A-Z]|_|-|[0-9])+$" GITHUB_REPO ${ARG_URL})
+        set(FILENAME ${CMAKE_MATCH_1})
+        string(REGEX MATCH "(([a-z]|[A-Z]|_|[0-9]|[.])+)(-)" TMP ${FILENAME})
+        set(GITHUB_REPO ${CMAKE_MATCH_1})
+        set(GITHUB_USER ${CMAKE_MATCH_1})
+        string(REGEX MATCH "(-)(([a-z]|[A-Z]|_|-|[0-9]|[.])+)$" TMP ${FILENAME})
+        set(GITHUB_TAG ${CMAKE_MATCH_2})
+
+        message("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
+    endif()
+
+    set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
+    set(${ARG_VARIABLE} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
+
+endfunction()
+
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;ENSURE_ORDER"
+        "EXCLUDE;SKIP_BUILD;SKIP_INSTALL;ENSURE_ORDER"
         "TARGET;URL;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
@@ -64,75 +118,51 @@ function(RequireExternal)
             set(ARG_OVERRIDE_GENERATOR ${CMAKE_GENERATOR})
         endif()
 
+        if (NOT ARG_SKIP_INSTALL)
+            set(INSTALL_COMMAND "")
+        else()
+            set(INSTALL_COMMAND INSTALL_COMMAND "")
+        endif()
+
+        if (NOT ARG_SKIP_BUILD)
+            set(BUILD_COMMAND "")
+            set(UPDATE_COMMAND "")
+        else()
+            set(BUILD_COMMAND BUILD_COMMAND "")
+            set(UPDATE_COMMAND UPDATE_COMMAND "")
+        endif()
+
+        set(CONFIG_COMMAND "${CMAKE_COMMAND}")
+        if (ARG_CONFIGURE_ARGUMENTS)
+            list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
+        endif()
+        list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_PREFIX=${THIRD_PARTY_PREFIX}")
+        list(APPEND CONFIG_COMMAND "-DOVERRIDE_THIRD_PARTY=${THIRD_PARTY_PREFIX}")
+        list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+        list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
+        list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
+
         if (ARG_MODULE)
-            if (ARG_SKIP_BUILD)
-                ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                    GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-                    GIT_TAG ${GITHUB_TAG}
-                    PREFIX ${THIRD_PARTY_PREFIX}
-                    CONFIGURE_COMMAND ""
-                    BUILD_COMMAND ""
-                    INSTALL_COMMAND ""
-                    TEST_COMMAND ""
-                    UPDATE_COMMAND ""
-                )
-            else()
-                set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-                list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
-                list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-                list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
-                list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
-
-                ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                    GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-                    GIT_TAG ${GITHUB_TAG}
-                    PREFIX ${THIRD_PARTY_PREFIX}
-                    CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                    INSTALL_COMMAND ""
-                    TEST_COMMAND ""
-                )
-            endif()
+            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
+                GIT_TAG ${GITHUB_TAG}
+                PREFIX ${THIRD_PARTY_PREFIX}
+                CONFIGURE_COMMAND ${CONFIG_COMMAND}
+                ${BUILD_COMMAND}
+                ${INSTALL_COMMAND}
+                ${UPDATE_COMMAND} 
+                TEST_COMMAND ""
+            )
         elseif(ARG_URL)
-            if (ARG_SKIP_BUILD)
-                ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                    URL ${ARG_URL}
-                    PREFIX ${THIRD_PARTY_PREFIX}
-                    CONFIGURE_COMMAND ""
-                    BUILD_COMMAND ""
-                    INSTALL_COMMAND ""
-                    TEST_COMMAND ""
-                    UPDATE_COMMAND ""
-                )
-            elseif (ARG_CONFIGURE_ARGUMENTS)
-                set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-                list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
-                list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-                list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
-                list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
-
-                ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                    URL ${ARG_URL}
-                    PREFIX ${THIRD_PARTY_PREFIX}
-                    CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                    INSTALL_COMMAND ""
-                    TEST_COMMAND ""
-                    UPDATE_COMMAND ""
-                )
-            else()
-                set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-                list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-                list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
-                list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
-
-                ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
-                    URL ${ARG_URL}
-                    PREFIX ${THIRD_PARTY_PREFIX}
-                    CONFIGURE_COMMAND ${CONFIG_COMMAND}
-                    INSTALL_COMMAND ""
-                    TEST_COMMAND ""
-                    UPDATE_COMMAND ""
-                )
-            endif()
+            ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+                URL ${ARG_URL}
+                PREFIX ${THIRD_PARTY_PREFIX}
+                CONFIGURE_COMMAND ${CONFIG_COMMAND}
+                ${BUILD_COMMAND}
+                ${INSTALL_COMMAND}
+                ${UPDATE_COMMAND} 
+                TEST_COMMAND ""
+            )
         endif()
 
         # Placeholder step, does nothing
