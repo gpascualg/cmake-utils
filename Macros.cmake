@@ -73,16 +73,29 @@ function(AddPackage)
         # TODO: Revisit this, it won't play nice with build types
         get_target_property(${ARG_PACKAGE}_LIBRARY ${ARG_PACKAGE} LOCATION)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
+
+        # TODO: And this, should we automatically do it via target_link_libraries?
+        get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE} INTERFACE_LINK_LIBRARIES)
+        foreach(lib ${${LIBNAME}_LIBRARIES})
+            AddLibrary(
+                TARGET ${ARG_TARGET}
+                LIBRARY ${lib}
+            )
+        endforeach()
+        
+
+        # TODO: And this, should we automatically do it via target_link_libraries?
+        get_target_property(${LIBNAME}_INCLUDE_DIRS ${ARG_PACKAGE} INTERFACE_INCLUDE_DIRECTORIES)
     else ()
         message(FATAL_ERROR "Could not locate libraries for ${ARG_PACKAGE}")
     endif()
 
-    if (${LIBNAME}_INCLUDE_DIRS)
+    foreach (dir ${${LIBNAME}_INCLUDE_DIRS})
         AddToIncludes(
             TARGET ${ARG_TARGET}
-            INC_PATH ${${LIBNAME}_INCLUDE_DIRS}
+            INC_PATH ${dir}
         )
-    endif()
+    endforeach()
 endfunction()
 
 function(AddNonStandardPackage)
@@ -303,17 +316,6 @@ function(BuildNow)
     ExternalInstallDirectory(VARIABLE "EXTERNAL_DEPENDENCIES")
     target_include_directories(${ARG_TARGET} PUBLIC ${EXTERNAL_DEPENDENCIES}/include)
 
-    foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
-        string(FIND ${dir} ${PROJECT_SOURCE_DIR} INTERNAL_INCLUDE)
-        string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_EXTERNAL)
-        
-        if (IS_EXTERNAL)
-            target_include_directories(${ARG_TARGET} PUBLIC ${dir})
-        else()
-            target_include_directories(${ARG_TARGET} PRIVATE ${dir})
-        endif()
-    endforeach()
-
     foreach(dep ${${ARG_TARGET}_INSTALLED})
         message("Auto-finding ${dep}")
         AddPackage(
@@ -321,6 +323,17 @@ function(BuildNow)
             PACKAGE ${dep} 
             HINTS ${EXTERNAL_DEPENDENCIES}
         )
+    endforeach()
+
+    foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
+        string(FIND ${dir} ${PROJECT_SOURCE_DIR} INTERNAL_INCLUDE)
+        string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_EXTERNAL)
+
+        if (IS_EXTERNAL)
+            target_include_directories(${ARG_TARGET} PUBLIC ${dir})
+        else()
+            target_include_directories(${ARG_TARGET} PRIVATE ${dir})
+        endif()
     endforeach()
 
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
