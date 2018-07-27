@@ -49,11 +49,16 @@ function(AddPackage)
         ARG
         ""
         "TARGET;PACKAGE"
-        ""
+        "HINTS"
         ${ARGN}
     )
+    
+    if (ARG_HINTS)
+        find_package(${ARG_PACKAGE} REQUIRED HINTS ${ARG_HINTS})
+    else()
+        find_package(${ARG_PACKAGE} REQUIRED)
+    endif()
 
-    find_package(${ARG_PACKAGE} REQUIRED)
     string(TOUPPER ${ARG_PACKAGE} LIBNAME)
 
     if (${LIBNAME}_LIBRARY)
@@ -65,7 +70,7 @@ function(AddPackage)
     elseif (${ARG_PACKAGE}_LIBRARIES)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
     else ()
-        message(FATAL_ERROR "Could not find package ${ARG_PACKAGE} libraries")
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${ARG_PACKAGE})
     endif()
 endfunction()
 
@@ -262,6 +267,15 @@ function(BuildNow)
         endif()
     endforeach()
 
+    foreach(dep ${${ARG_TARGET}_INSTALLED})
+        message("Auto-fiding ${dep}")
+        AddPackage(
+            TARGET ${ARG_TARGET}
+            PACKAGE ${dep} 
+            HINTS ${EXTERNAL_DEPENDENCIES}
+        )
+    endforeach()
+
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
         target_link_libraries(${ARG_TARGET}
@@ -330,13 +344,11 @@ function(MakeInstallable)
         ${ARGN}
     )
 
-    string(TOLOWER ${ARG_TARGET} TARGET_LOWER)
-
     include(CMakePackageConfigHelpers)
-	set(config_install_dir lib/cmake/${TARGET_LOWER})
-	set(version_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config-version.cmake)
-	set(project_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config.cmake)
-    set(targets_export_name ${TARGET_LOWER}-targets)
+	set(config_install_dir lib/cmake/${ARG_TARGET})
+	set(version_config ${PROJECT_BINARY_DIR}/${ARG_TARGET}-config-version.cmake)
+	set(project_config ${PROJECT_BINARY_DIR}/${ARG_TARGET}-config.cmake)
+    set(targets_export_name ${ARG_TARGET}-targets)
     
     write_basic_package_version_file(
 	  ${version_config}
@@ -382,6 +394,7 @@ endfunction()
 function(ResetAllTargets)
     foreach(target ${ALL_TARGETS})
         set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
+        set(${target}_INSTALLED "" CACHE INTERNAL "")
         set(${target}_LINK_DIRS "" CACHE INTERNAL "")
         set(${target}_DEFINES "" CACHE INTERNAL "")
         set(${target}_DEBUG_DEPENDENCIES "" CACHE INTERNAL "")

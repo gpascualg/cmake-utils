@@ -59,7 +59,7 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;ENSURE_ORDER;INSTALL_INCLUDE"
-        "TARGET;URL;MODULE;INC_PATH;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
+        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -110,7 +110,7 @@ function(RequireExternal)
     # It might have already been referenced by a subproject, do not pull more than once!
     # TODO: Removed "NOT THIRD_PARTY_ALREADY_EXISTS AND ", is it r
     if (NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
-        if (NOT ARG_SKIP_BUILD)
+        if (NOT ARG_SKIP_BUILD AND ARG_SKIP_INSTALL)
             # Add build directory to include
             set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/ CACHE INTERNAL "")
             set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}-build/${ARG_INC_PATH} CACHE INTERNAL "")
@@ -136,6 +136,10 @@ function(RequireExternal)
             endif()
         else()
             set(INSTALL_COMMAND "echo") # TODO: Find a better no-op
+        endif()
+
+        if (ARG_INSTALL_NAME)
+            set(${ARG_TARGET}_INSTALLED ${${ARG_TARGET}_INSTALLED} ${ARG_INSTALL_NAME} CACHE INTERNAL "")
         endif()
 
         if (NOT ARG_SKIP_BUILD)
@@ -249,13 +253,15 @@ function(RequireExternal)
         endif()
     endif()
 
-    # Add dependency
-    AddDependency(
-        TARGET ${ARG_TARGET}
-        DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}"
-        INC_PATH "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_INC_PATH}"
-        SKIP_LINK
-    )
+    # Add dependency if not installed
+    if (ARG_SKIP_INSTALL)
+        AddDependency(
+            TARGET ${ARG_TARGET}
+            DEPENDENCY "${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}"
+            INC_PATH "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_INC_PATH}"
+            SKIP_LINK
+        )
+    endif()
 
     if (ARG_ENSURE_ORDER)
         add_dependencies(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} ${${ARG_TARGET}_ALL_EP})
