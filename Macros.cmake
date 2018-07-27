@@ -323,6 +323,12 @@ function(BuildNow)
         )
     endforeach()
 
+    if (TARGET ReverseTale-CommonServer)
+        message("OK")
+    endif()
+    get_target_property(TEST_X ReverseTale-CommonServer INTERFACE_INCLUDE_DIRECTORIES)
+    message(${TEST_X})
+
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
         target_link_libraries(${ARG_TARGET}
@@ -391,11 +397,13 @@ function(MakeInstallable)
         ${ARGN}
     )
 
+    string(TOLOWER ${ARG_TARGET} TARGET_LOWER)
+
     include(CMakePackageConfigHelpers)
-	set(config_install_dir lib/cmake/${ARG_TARGET})
-	set(version_config ${PROJECT_BINARY_DIR}/${ARG_TARGET}-config-version.cmake)
-	set(project_config ${PROJECT_BINARY_DIR}/${ARG_TARGET}-config.cmake)
-    set(targets_export_name ${ARG_TARGET}-targets)
+	set(config_install_dir lib/cmake/${TARGET_LOWER})
+	set(version_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config-version.cmake)
+	set(project_config ${PROJECT_BINARY_DIR}/${TARGET_LOWER}-config.cmake)
+    set(targets_export_name ${TARGET_LOWER}-targets)
     
     write_basic_package_version_file(
 	  ${version_config}
