@@ -294,16 +294,16 @@ function(ResolveExternal)
 
         MATH(EXPR NEXT_REBUILD "${REBUILD_COUNT} + 1")
         if ("${REBUILD_COUNT}" MATCHES "0")
-            # add_custom_target(Rebuild ALL
-            #     ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
-            #     COMMAND ${CMAKE_COMMAND} --build .
-            #     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            # )
+            add_custom_target(Rebuild ALL
+                ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
+                COMMAND ${CMAKE_COMMAND} --build .
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            )
         endif()
 
         add_custom_target(BuildDeps_${NEXT_REBUILD} ALL DEPENDS ${${ARG_TARGET}_ALL_EP})
-        # add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
-        # set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
+        add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
+        set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
         message("${ARG_TARGET} NOT RESOLVED")
     else()
         set(${ARG_TARGET}_IS_RESOLVED TRUE PARENT_SCOPE)
