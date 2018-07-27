@@ -72,8 +72,53 @@ function(AddPackage)
     else ()
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${ARG_PACKAGE})
     endif()
+
+    if (${LIBNAME}_INCLUDE_DIRS)
+        AddToIncludes(
+            TARGET ${ARG_TARGET}
+            INC_PATH ${${LIBNAME}_INCLUDE_DIRS}
+        )
+    endif()
 endfunction()
 
+function(AddNonStandardPackage)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;PACKAGE;CONFIG;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE"
+        ""
+        ${ARGN}
+    )
+
+    ResolveExternal(TARGET ${ARG_TARGET})
+    if (${ARG_TARGET}_IS_RESOLVED)
+        ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
+
+        if (NOT ARG_CONFIG)
+            set(ARG_CONFIG ${ARG_PACKAGE})
+        endif()
+
+        include(${EXTERNAL_DIRECTORY}/lib/cmake/${ARG_PACKAGE}/${ARG_CONFIG}-config.cmake)
+        
+        if (ARG_LIBRARY_VARIABLE)
+            foreach(lib ${${ARG_LIBRARY_VARIABLE}})
+                AddLibrary(
+                    TARGET ${ARG_TARGET}
+                    LIBRARY ${lib}
+                )
+            endforeach()
+        endif()
+            
+        if(ARG_INCLUDE_VARIABLE)
+            foreach(dir ${${ARG_INCLUDE_VARIABLE}})
+                AddToIncludes(
+                    TARGET ${ARG_TARGET}
+                    INC_PATH ${dir}
+                )
+            endforeach()
+        endif()
+    endif()
+endfunction()
 
 function(AddLibrary)
     cmake_parse_arguments(
@@ -89,7 +134,9 @@ function(AddLibrary)
         return()
     endif()
 
-    if (ARG_HINTS)
+    if (EXISTS ${ARG_LIBRARY})
+        set(OUTPUT_LIB ${ARG_LIBRARY})
+    elseif (ARG_HINTS)
         find_library(OUTPUT_LIB ${ARG_LIBRARY} HINTS ${ARG_HINTS})
     else()
         find_library(OUTPUT_LIB ${ARG_LIBRARY})
