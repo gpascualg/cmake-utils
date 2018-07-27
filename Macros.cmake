@@ -315,7 +315,7 @@ function(BuildNow)
     endforeach()
 
     foreach(dep ${${ARG_TARGET}_INSTALLED})
-        message("Auto-fiding ${dep}")
+        message("Auto-finding ${dep}")
         AddPackage(
             TARGET ${ARG_TARGET}
             PACKAGE ${dep} 
@@ -325,13 +325,13 @@ function(BuildNow)
 
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
-        target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+        # target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
 
-        # if (ARG_EXECUTABLE)
-        #     target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
-        # else()
-        #     target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
-        # endif()
+        if (ARG_EXECUTABLE)
+            target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+        else()
+            target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
+        endif()
 
         RecursiveDependencies(
             TARGET ${ARG_TARGET}
