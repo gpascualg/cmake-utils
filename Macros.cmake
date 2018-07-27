@@ -319,19 +319,15 @@ function(BuildNow)
         )
     endforeach()
 
-    if (TARGET ReverseTale-CommonServer)
-        message("OK")
-    endif()
-    get_target_property(TEST_X ReverseTale-CommonServer INTERFACE_INCLUDE_DIRECTORIES)
-    message(${TEST_X})
-
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
-        if (ARG_EXECUTABLE)
-            target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
-        else()
-            target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
-        endif()
+        target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+
+        # if (ARG_EXECUTABLE)
+        #     target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+        # else()
+        #     target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
+        # endif()
 
         RecursiveDependencies(
             TARGET ${ARG_TARGET}
