@@ -300,17 +300,13 @@ function(BuildNow)
     target_include_directories(${ARG_TARGET} PUBLIC ${EXTERNAL_DEPENDENCIES}/include)
 
     foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
-        string(FIND ${PROJECT_SOURCE_DIR} ${dir} INTERNAL_INCLUDE)
-        string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_INTERNAL)
+        string(FIND ${dir} ${PROJECT_SOURCE_DIR} INTERNAL_INCLUDE)
+        string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_EXTERNAL)
         
-        if (IS_INTERNAL)
-            target_include_directories(${ARG_TARGET}
-                PRIVATE ${dir}
-            )
+        if (IS_EXTERNAL)
+            target_include_directories(${ARG_TARGET} PUBLIC ${dir})
         else()
-            target_include_directories(${ARG_TARGET}
-                PUBLIC ${dir}
-            )
+            target_include_directories(${ARG_TARGET} PRIVATE ${dir})
         endif()
     endforeach()
 
@@ -325,9 +321,11 @@ function(BuildNow)
 
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
-        target_link_libraries(${ARG_TARGET}
-            PUBLIC ${dep}
-        )
+        if (ARG_EXECUTABLE)
+            target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+        else()
+            target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
+        endif()
 
         RecursiveDependencies(
             TARGET ${ARG_TARGET}
