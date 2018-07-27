@@ -69,8 +69,12 @@ function(AddPackage)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
     elseif (${ARG_PACKAGE}_LIBRARIES)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
+    elseif (TARGET ${ARG_PACKAGE})
+        # TODO: Revisit this, it won't play nice with build types
+        get_target_property(${ARG_PACKAGE}_LIBRARY ${ARG_PACKAGE} LOCATION)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
     else ()
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${ARG_PACKAGE})
+        message(FATAL_ERROR "Could not locate libraries for ${ARG_PACKAGE}")
     endif()
 
     if (${LIBNAME}_INCLUDE_DIRS)
