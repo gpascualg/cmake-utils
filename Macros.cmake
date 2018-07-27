@@ -151,7 +151,16 @@ function(AddLibrary)
         return()
     endif()
 
-    if (EXISTS ${ARG_LIBRARY})
+    # Avoid having -l in front
+    # string(SUBSTRING ${ARG_LIBRARY} 0 2 LIBRARY_INITIAL)
+    # string(COMPARE EQUAL ${LIBRARY_INITIAL} "-l" IS_SYS_LIB)
+
+    string(SUBSTRING ${ARG_LIBRARY} 0 1 LIBRARY_INITIAL)
+    string(COMPARE EQUAL ${LIBRARY_INITIAL} "-" IS_SYS_LIB)
+
+    if (IS_SYS_LIB)
+        string(SUBSTRING ${ARG_LIBRARY} 1 -1 OUTPUT_LIB)
+    elseif (EXISTS ${ARG_LIBRARY})
         set(OUTPUT_LIB ${ARG_LIBRARY})
     elseif (ARG_HINTS)
         find_library(OUTPUT_LIB ${ARG_LIBRARY} HINTS ${ARG_HINTS})
