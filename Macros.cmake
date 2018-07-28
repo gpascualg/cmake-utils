@@ -323,7 +323,10 @@ function(BuildNow)
 
     # Include installed dependencies
     ExternalInstallDirectory(VARIABLE "EXTERNAL_DEPENDENCIES")
-    target_include_directories(${ARG_TARGET} PUBLIC ${EXTERNAL_DEPENDENCIES}/include)
+    AddToIncludes(
+        TARGET ${ARG_TARGET}
+        INC_PATH ${EXTERNAL_DEPENDENCIES}/include
+    )
 
     foreach(dep ${${ARG_TARGET}_INSTALLED})
         message("Auto-finding ${dep}")
