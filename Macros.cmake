@@ -446,12 +446,7 @@ function(BuildNow)
     # Process definitions
     AddDefinition(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINES})
     foreach(def ${${ARG_TARGET}_DEFINES})
-        if (ARG_EXECUTABLE)
-            target_compile_definitions(${ARG_TARGET} PUBLIC ${def})
-        else()
-            target_compile_definitions(${ARG_TARGET} INTERFACE ${def})
-        endif()
-
+        target_compile_definitions(${ARG_TARGET} PUBLIC ${def})
         message("${ARG_TARGET} compile definition -D${def}")
     endforeach()
 
