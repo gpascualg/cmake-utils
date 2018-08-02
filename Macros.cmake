@@ -119,6 +119,11 @@ function(AddNonStandardPackage)
             set(ARG_CONFIG ${ARG_PACKAGE})
         endif()
 
+        # Make sure we are in the correct prefix
+        if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
+            list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
+        endif()
+
         include(${EXTERNAL_DIRECTORY}/lib/cmake/${ARG_PACKAGE}/${ARG_CONFIG}-config.cmake)
         
         if (ARG_LIBRARY_VARIABLE)
