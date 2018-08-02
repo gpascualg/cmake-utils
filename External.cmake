@@ -58,7 +58,7 @@ endfunction()
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE"
+        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;ALWAYS_BUILD"
         "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
@@ -216,6 +216,16 @@ function(RequireExternal)
             MATH(EXPR N "${I}")
             MATH(EXPR I "${I} + 1")
         endforeach()
+
+        if (ARG_ALWAYS_BUILD)
+            ExternalProject_Add_Step(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} Rebuild
+                ALWAYS TRUE
+                DEPENDEES configure
+                DEPENDERS build
+                EXCLUDE_FROM_MAIN
+                WORKING_DIRECTORY ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
+            )
+        endif()
 
         if (ARG_EXCLUDE)
             set_target_properties(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} PROPERTIES EXCLUDE_FROM_ALL TRUE)
