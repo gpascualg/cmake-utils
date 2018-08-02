@@ -78,13 +78,11 @@ function(AddPackage)
     elseif (${ARG_PACKAGE}_LIBRARIES)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
     elseif (TARGET ${ARG_PACKAGE})
-        # TODO: Revisit this, it won't play nice with build types
-        get_target_property(${ARG_PACKAGE}_LIBRARY ${ARG_PACKAGE} LOCATION)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
-
         # TODO: And this, should we automatically do it via target_link_libraries?
         get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE} INTERFACE_LINK_LIBRARIES)
         if (${LIBNAME}_LIBRARIES)
+            # Reverse them first, as later on they will be added in reverse order
+            list(REVERSE ${LIBNAME}_LIBRARIES)
             foreach(lib ${${LIBNAME}_LIBRARIES})
                 AddLibrary(
                     TARGET ${ARG_TARGET}
@@ -92,6 +90,11 @@ function(AddPackage)
                 )
             endforeach()
         endif()
+
+        # TODO: Revisit this, it won't play nice with build types
+        # Link after linking interface libraries
+        get_target_property(${ARG_PACKAGE}_LIBRARY ${ARG_PACKAGE} LOCATION)
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
         
         # TODO: And this, should we automatically do it via target_link_libraries?
         get_target_property(${LIBNAME}_DEFINITIONS ${ARG_PACKAGE} INTERFACE_COMPILE_DEFINITIONS)
