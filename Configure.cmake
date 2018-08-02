@@ -7,12 +7,13 @@ macro(AddCXXFlagIfSupported flag test)
    CHECK_CXX_COMPILER_FLAG(${flag} ${test})
    if( ${${test}} )
       message("adding ${flag}")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
+        add_definitions(${flag})
    endif()
 endmacro()
 
 if("Ninja" STREQUAL ${CMAKE_GENERATOR})
-   AddCXXFlagIfSupported(-fdiagnostics-color COMPILER_SUPPORTS_fdiagnostics-color)
+   AddCXXFlagIfSupported(-fdiagnostics-color COMPILER_SUPPORTS_fdiagnostics-color) # GCC
+   AddCXXFlagIfSupported(-fcolor-diagnostics COMPILER_SUPPORTS_fcolor-diagnostics) # Clang
 endif()
 
 function(CopyCommands)
