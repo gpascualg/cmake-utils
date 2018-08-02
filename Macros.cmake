@@ -93,6 +93,14 @@ function(AddPackage)
             endforeach()
         endif()
         
+        # TODO: And this, should we automatically do it via target_link_libraries?
+        get_target_property(${LIBNAME}_DEFINITIONS ${ARG_PACKAGE} INTERFACE_COMPILE_DEFINITIONS)
+        if (${LIBNAME}_DEFINITIONS)
+            AddDefinition(
+                TARGET ${ARG_TARGET}
+                DEFINITIONS ${${LIBNAME}_DEFINITIONS}
+            )
+        endif()
 
         # TODO: And this, should we automatically do it via target_link_libraries?
         get_target_property(${LIBNAME}_INCLUDE_DIRS ${ARG_PACKAGE} INTERFACE_INCLUDE_DIRECTORIES)
@@ -114,7 +122,7 @@ function(AddNonStandardPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE;CONFIG;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE"
+        "TARGET;PACKAGE;CONFIG;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE;DEFINITIONS_VARIABLE"
         ""
         ${ARGN}
     )
@@ -150,6 +158,13 @@ function(AddNonStandardPackage)
                     INC_PATH ${dir}
                 )
             endforeach()
+        endif()
+
+        if (ARG_DEFINITIONS_VARIABLE)
+            AddDefinition(
+                TARGET ${ARG_TARGET}
+                DEFINITIONS ${${ARG_DEFINITIONS_VARIABLE}}
+            )
         endif()
     endif()
 endfunction()
@@ -428,9 +443,17 @@ function(BuildNow)
         )
     endif()
 
-    set_target_properties(${ARG_TARGET} PROPERTIES
-        COMPILE_DEFINITIONS "${ARG_DEFINES};${${ARG_TARGET}_DEFINES}"
-    )
+    # Process definitions
+    AddDefinition(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINES})
+    foreach(def ${${ARG_TARGET}_DEFINES})
+        if (ARG_EXECUTABLE)
+            target_compile_definitions(${ARG_TARGET} PUBLIC ${def})
+        else()
+            target_compile_definitions(${ARG_TARGET} INTERFACE ${def})
+        endif()
+
+        message("${ARG_TARGET} compile definition -D${def}")
+    endforeach()
 
     set_target_properties(${ARG_TARGET} PROPERTIES
         OUTPUT_NAME ${ARG_OUTPUT_NAME}
