@@ -122,7 +122,7 @@ function(AddNonStandardPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE;CONFIG;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE;DEFINITIONS_VARIABLE"
+        "TARGET;PACKAGE;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE;DEFINITIONS_VARIABLE"
         ""
         ${ARGN}
     )
@@ -131,16 +131,12 @@ function(AddNonStandardPackage)
     if (${ARG_TARGET}_IS_RESOLVED)
         ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
 
-        if (NOT ARG_CONFIG)
-            set(ARG_CONFIG ${ARG_PACKAGE})
-        endif()
-
         # Make sure we are in the correct prefix
         if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
             list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
         endif()
 
-        include(${EXTERNAL_DIRECTORY}/lib/cmake/${ARG_PACKAGE}/${ARG_CONFIG}-config.cmake)
+        find_package(${ARG_PACKAGE} REQUIRED NO_DEFAULT_PATH)
         
         if (ARG_LIBRARY_VARIABLE)
             foreach(lib ${${ARG_LIBRARY_VARIABLE}})
