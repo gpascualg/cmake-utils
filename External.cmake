@@ -58,7 +58,7 @@ endfunction()
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;ENSURE_ORDER;INSTALL_INCLUDE"
+        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE"
         "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
@@ -108,7 +108,7 @@ function(RequireExternal)
     endif()
 
     # It might have already been referenced by a subproject, do not pull more than once!
-    # TODO: Removed "NOT THIRD_PARTY_ALREADY_EXISTS AND ", is it r
+    # TODO: Removed "NOT THIRD_PARTY_ALREADY_EXISTS AND "
     if (NOT ";${${ARG_TARGET}_ALL_EP};" MATCHES ";${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG};")
         if (NOT ARG_SKIP_BUILD AND ARG_SKIP_INSTALL)
             # Add build directory to include
@@ -144,9 +144,14 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_BUILD)
             set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" ".")
-            set(UPDATE_COMMAND "git" "fetch")
         else()
             set(BUILD_COMMAND "echo")   # TODO: Find a better no-op
+        endif()
+
+        if (ARG_KEEP_UPDATED)
+            find_package(Git REQUIRED)
+            set(UPDATE_COMMAND ${GIT_EXECUTABLE} "pull")
+        else()
             set(UPDATE_COMMAND "echo")  # TODO: Find a better no-op
         endif()
 
