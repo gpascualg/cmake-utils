@@ -59,7 +59,7 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE"
-        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND"
+        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -144,6 +144,12 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_BUILD)
             set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" ".")
+            if (ARG_BUILD_TARGET)
+                list(APPEND BUILD_COMMAND "--target")
+                list(APPEND BUILD_COMMAND ${ARG_BUILD_TARGET})
+            endif()
+
+            message("USING ${BUILD_COMMAND}")
         else()
             set(BUILD_COMMAND "echo")   # TODO: Find a better no-op
         endif()
@@ -269,7 +275,10 @@ function(RequireExternal)
     endif()
 
     if (ARG_ENSURE_ORDER)
-        add_dependencies(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} ${${ARG_TARGET}_ALL_EP})
+        # If it is not the first one
+        if (${ARG_TARGET}_ALL_EP)
+            add_dependencies(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} ${${ARG_TARGET}_ALL_EP})
+        endif()
     endif()
 
     if (NOT ARG_SKIP_BUILD)
