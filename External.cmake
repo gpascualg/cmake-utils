@@ -300,7 +300,7 @@ endfunction()
 function(ResolveExternal)
     cmake_parse_arguments(
         ARG
-        ""
+        "SILENT"
         "TARGET"
         ""
         ${ARGN}
@@ -322,9 +322,15 @@ function(ResolveExternal)
         add_custom_target(BuildDeps_${NEXT_REBUILD} ALL DEPENDS ${${ARG_TARGET}_ALL_EP})
         add_dependencies(Rebuild BuildDeps_${NEXT_REBUILD})
         set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
-        message("${ARG_TARGET} NOT RESOLVED")
+
+        if (NOT ARG_SILENT)
+            message("${ARG_TARGET} NOT RESOLVED")
+        endif()
     else()
         set(${ARG_TARGET}_IS_RESOLVED TRUE PARENT_SCOPE)
-        message("${ARG_TARGET} RESOLVED")
+
+        if (NOT ARG_SILENT)
+            message("${ARG_TARGET} RESOLVED")
+        endif()
     endif()
 endfunction()

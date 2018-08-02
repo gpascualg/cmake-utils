@@ -127,7 +127,7 @@ function(AddNonStandardPackage)
         ${ARGN}
     )
 
-    ResolveExternal(TARGET ${ARG_TARGET})
+    ResolveExternal(TARGET ${ARG_TARGET} SILENT)
     if (${ARG_TARGET}_IS_RESOLVED)
         ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
 
@@ -139,6 +139,8 @@ function(AddNonStandardPackage)
         find_package(${ARG_PACKAGE} REQUIRED)
         
         if (ARG_LIBRARY_VARIABLE)
+            # Reverse them first, as later on they will be added in reverse order
+            list(REVERSE ${ARG_LIBRARY_VARIABLE})
             foreach(lib ${${ARG_LIBRARY_VARIABLE}})
                 AddLibrary(
                     TARGET ${ARG_TARGET}
@@ -185,24 +187,39 @@ function(AddLibrary)
 
     # Libraries linked via "-[l]<name>"
     if (IS_SYS_LIB)
-        string(SUBSTRING ${ARG_LIBRARY} 1 -1 TEMP_LIB)
-        string(SUBSTRING ${TEMP_LIB} 0 1 LIBRARY_INITIAL)
+        string(SUBSTRING ${ARG_LIBRARY} 1 -1 LOOKUP_NAME)
+        string(SUBSTRING ${LOOKUP_NAME} 0 1 LIBRARY_INITIAL)
         string(COMPARE EQUAL ${LIBRARY_INITIAL} "l" USES_LIB_NAMESPACE)
 
         # Libraries linked via "-l<name>"
         if (USES_LIB_NAMESPACE)
-            string(SUBSTRING ${TEMP_LIB} 1 -1 TEMP_LIB)
+            string(SUBSTRING ${LOOKUP_NAME} 1 -1 LOOKUP_NAME)
         endif()
-
-        find_library(OUTPUT_LIB ${TEMP_LIB})
 
     elseif (EXISTS ${ARG_LIBRARY})
         set(OUTPUT_LIB ${ARG_LIBRARY})
-    elseif (ARG_HINTS)
-        find_library(OUTPUT_LIB ${ARG_LIBRARY} HINTS ${ARG_HINTS})
+        set(SKIP_FIND TRUE)
     else()
-        find_library(OUTPUT_LIB ${ARG_LIBRARY})
+        set(LOOKUP_NAME ${ARG_LIBRARY})
     endif()
+    
+    # Unless its already found
+    if (NOT SKIP_FIND)
+        if (NOT ARG_HINTS)
+            ExternalInstallDirectory(VARIABLE EXTERNAL_DIRECTORY)
+            find_library(OUTPUT_LIB ${LOOKUP_NAME} PATHS ${EXTERNAL_DIRECTORY}/lib NO_DEFAULT_PATH)
+        endif()
+
+        # If not found, try global
+        if (NOT OUTPUT_LIB)
+            if (ARG_HINTS)
+                find_library(OUTPUT_LIB ${LOOKUP_NAME} HINTS ${ARG_HINTS})
+            else()
+                find_library(OUTPUT_LIB ${LOOKUP_NAME})
+            endif()
+        endif()
+    endif()
+
 
     if (OUTPUT_LIB)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${OUTPUT_LIB})
@@ -387,6 +404,8 @@ function(BuildNow)
         endif()
     endforeach()
 
+    # Iterate in reverse order to avoid messing dependencies
+    list(REVERSE ${ARG_TARGET}_DEPENDENCIES)
     foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
         message("${ARG_TARGET} links to ${dep}")
         # target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
