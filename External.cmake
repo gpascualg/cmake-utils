@@ -148,8 +148,6 @@ function(RequireExternal)
                 list(APPEND BUILD_COMMAND "--target")
                 list(APPEND BUILD_COMMAND ${ARG_BUILD_TARGET})
             endif()
-
-            message("USING ${BUILD_COMMAND}")
         else()
             set(BUILD_COMMAND "echo")   # TODO: Find a better no-op
         endif()
