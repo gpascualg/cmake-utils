@@ -136,7 +136,7 @@ function(AddNonStandardPackage)
             list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
         endif()
 
-        find_package(${ARG_PACKAGE} REQUIRED NO_DEFAULT_PATH)
+        find_package(${ARG_PACKAGE} REQUIRED)
         
         if (ARG_LIBRARY_VARIABLE)
             foreach(lib ${${ARG_LIBRARY_VARIABLE}})
