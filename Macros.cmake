@@ -76,12 +76,14 @@ function(AddPackage)
 
         # TODO: And this, should we automatically do it via target_link_libraries?
         get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE} INTERFACE_LINK_LIBRARIES)
-        foreach(lib ${${LIBNAME}_LIBRARIES})
-            AddLibrary(
-                TARGET ${ARG_TARGET}
-                LIBRARY ${lib}
-            )
-        endforeach()
+        if (${${LIBNAME}_LIBRARIES})
+            foreach(lib ${${LIBNAME}_LIBRARIES})
+                AddLibrary(
+                    TARGET ${ARG_TARGET}
+                    LIBRARY ${lib}
+                )
+            endforeach()
+        endif()
         
 
         # TODO: And this, should we automatically do it via target_link_libraries?
@@ -90,12 +92,14 @@ function(AddPackage)
         message(FATAL_ERROR "Could not locate libraries for ${ARG_PACKAGE}")
     endif()
 
-    foreach (dir ${${LIBNAME}_INCLUDE_DIRS})
-        AddToIncludes(
-            TARGET ${ARG_TARGET}
-            INC_PATH ${dir}
-        )
-    endforeach()
+    if (${${LIBNAME}_INCLUDE_DIRS})
+        foreach (dir ${${LIBNAME}_INCLUDE_DIRS})
+            AddToIncludes(
+                TARGET ${ARG_TARGET}
+                INC_PATH ${dir}
+            )
+        endforeach()
+    endif()
 endfunction()
 
 function(AddNonStandardPackage)
