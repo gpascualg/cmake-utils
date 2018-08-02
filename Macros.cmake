@@ -168,15 +168,23 @@ function(AddLibrary)
         return()
     endif()
 
-    # Avoid having -l in front
-    # string(SUBSTRING ${ARG_LIBRARY} 0 2 LIBRARY_INITIAL)
-    # string(COMPARE EQUAL ${LIBRARY_INITIAL} "-l" IS_SYS_LIB)
-
+    # Check if it is linked via "-[l]<name>"
     string(SUBSTRING ${ARG_LIBRARY} 0 1 LIBRARY_INITIAL)
     string(COMPARE EQUAL ${LIBRARY_INITIAL} "-" IS_SYS_LIB)
 
+    # Libraries linked via "-[l]<name>"
     if (IS_SYS_LIB)
-        string(SUBSTRING ${ARG_LIBRARY} 1 -1 OUTPUT_LIB)
+        string(SUBSTRING ${ARG_LIBRARY} 1 -1 TEMP_LIB)
+        string(SUBSTRING ${TEMP_LIB} 0 1 LIBRARY_INITIAL)
+        string(COMPARE EQUAL ${LIBRARY_INITIAL} "l" USES_LIB_NAMESPACE)
+
+        # Libraries linked via "-l<name>"
+        if (USES_LIB_NAMESPACE)
+            string(SUBSTRING ${TEMP_LIB} 1 -1 TEMP_LIB)
+        endif()
+
+        find_library(OUTPUT_LIB ${TEMP_LIB})
+
     elseif (EXISTS ${ARG_LIBRARY})
         set(OUTPUT_LIB ${ARG_LIBRARY})
     elseif (ARG_HINTS)
