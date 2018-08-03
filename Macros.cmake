@@ -17,38 +17,65 @@ endfunction()
 function(AddDependency)
     cmake_parse_arguments(
         ARG
-        "SKIP_LINK;DEBUG;OPTIMIZED"
-        "TARGET;DEPENDENCY;INC_PATH"
+        ""
+        "TARGET;DEPENDENCY"
         ""
         ${ARGN}
     )
 
-    if (NOT ARG_SKIP_LINK)
-        if (ARG_DEBUG)
-            if (NOT ";${${ARG_TARGET}_DEBUG_DEPENDENCIES};" MATCHES ";${ARG_DEPENDENCY};")
-                set(${ARG_TARGET}_DEBUG_DEPENDENCIES ${${ARG_TARGET}_DEBUG_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
-            endif()
-        elseif (ARG_OPTIMIZED)
-            if (NOT ";${${ARG_TARGET}_OPTIMIZED_DEPENDENCIES};" MATCHES ";${ARG_DEPENDENCY};")
-                set(${ARG_TARGET}_OPTIMIZED_DEPENDENCIES ${${ARG_TARGET}_OPTIMIZED_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
-            endif()
-        else()
-            if (NOT ";${${ARG_TARGET}_DEPENDENCIES};" MATCHES ";${ARG_DEPENDENCY};")
-                set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
-            endif()
-        endif()
-    else()
-        if (NOT ";${${ARG_TARGET}_FORCE_DEPENDENCIES};" MATCHES ";${ARG_DEPENDENCY};")
-            set(${ARG_TARGET}_FORCE_DEPENDENCIES ${${ARG_TARGET}_FORCE_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
-        endif()
+    if (NOT TARGET ${ARG_DEPENDENCY})
+        message(FATAL_ERROR "AddDependency should be used only with other targets, use AddPackage or AddLibrary")
     endif()
 
-    if (ARG_INC_PATH)
-        AddToSources(
+    if (";${ALL_TARGETS};" MATCHES ";${ARG_DEPENDENCY};")
+        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+
+        # TODO: Only add it if it was declared private in first instance
+        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${${ARG_DEPENDENCY}_INCLUDE_DIRECTORIES} CACHE INTERNAL "")
+
+        return()
+    endif()
+    
+    get_target_property(${ARG_TARGET}_INTERFACE_LIBRARIES ${ARG_PACKAGE_TARGET} INTERFACE_LINK_LIBRARIES)
+    if (${ARG_TARGET}_INTERFACE_LIBRARIES)
+        # Reverse them first, as later on they will be added in reverse order
+        list(REVERSE ${ARG_TARGET}_INTERFACE_LIBRARIES)
+        foreach(lib ${${ARG_TARGET}_INTERFACE_LIBRARIES})
+            AddLibrary(
+                TARGET ${ARG_TARGET}
+                LIBRARY ${lib}
+            )
+        endforeach()
+    endif()
+
+    # TODO: Revisit this, it won't play nice with build types
+    # Link after linking interface libraries, unless it is an interface, which does not allow
+    # to use location property
+    get_target_property(${ARG_PACKAGE_TARGET}_TYPE ${ARG_PACKAGE_TARGET} TYPE)
+    if (NOT ${ARG_PACKAGE_TARGET}_TYPE STREQUAL "INTERFACE_LIBRARY")
+        get_target_property(${ARG_PACKAGE_TARGET}_LIBRARY ${ARG_PACKAGE_TARGET} LOCATION)
+        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${${ARG_PACKAGE_TARGET}_LIBRARY} CACHE INTERNAL "")
+    endif()
+    
+    # TODO: And this, should we automatically do it via target_link_libraries?
+    get_target_property(${ARG_TARGET}_INTERFACE_DEFINITIONS ${ARG_PACKAGE_TARGET} INTERFACE_COMPILE_DEFINITIONS)
+    if (${ARG_TARGET}_INTERFACE_DEFINITIONS)
+        AddToDefinitions(
             TARGET ${ARG_TARGET}
-            INCLUDE
-            INC_PATH ${ARG_INC_PATH}
+            DEFINITIONS ${${ARG_TARGET}_INTERFACE_DEFINITIONS}
         )
+    endif()
+
+    # TODO: And this, should we automatically do it via target_link_libraries?
+    get_target_property(${ARG_TARGET}_INTERFACE_INCLUDE_DIRS ${ARG_PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+
+    if (${ARG_TARGET}_INTERFACE_INCLUDE_DIRS)
+        foreach (dir ${${ARG_TARGET}_INTERFACE_INCLUDE_DIRS})
+            AddToIncludes(
+                TARGET ${ARG_TARGET}
+                INC_PATH ${dir}
+            )
+        endforeach()
     endif()
 endfunction()
 
@@ -90,59 +117,16 @@ function(AddPackage)
 
     string(TOUPPER ${ARG_PACKAGE} LIBNAME)
 
-    if (${LIBNAME}_LIBRARY)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${LIBNAME}_LIBRARY})
-    elseif (${LIBNAME}_LIBRARIES)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${LIBNAME}_LIBRARIES})
-    elseif (${ARG_PACKAGE}_LIBRARY)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
-    elseif (${ARG_PACKAGE}_LIBRARIES)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
-    elseif (TARGET ${ARG_PACKAGE_TARGET})
-        # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE_TARGET} INTERFACE_LINK_LIBRARIES)
-        if (${LIBNAME}_LIBRARIES)
-            # Reverse them first, as later on they will be added in reverse order
-            list(REVERSE ${LIBNAME}_LIBRARIES)
-            foreach(lib ${${LIBNAME}_LIBRARIES})
-                AddLibrary(
-                    TARGET ${ARG_TARGET}
-                    LIBRARY ${lib}
-                )
-            endforeach()
-        endif()
-
-        # TODO: Revisit this, it won't play nice with build types
-        # Link after linking interface libraries, unless it is an interface, which does not allow
-        # to use location property
-        get_target_property(${ARG_PACKAGE_TARGET}_TYPE ${ARG_PACKAGE_TARGET} TYPE)
-        if (NOT ${ARG_PACKAGE_TARGET}_TYPE STREQUAL "INTERFACE_LIBRARY")
-            get_target_property(${ARG_PACKAGE_TARGET}_LIBRARY ${ARG_PACKAGE_TARGET} LOCATION)
-            AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE_TARGET}_LIBRARY})
-        endif()
-        
-        # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_DEFINITIONS ${ARG_PACKAGE_TARGET} INTERFACE_COMPILE_DEFINITIONS)
-        if (${LIBNAME}_DEFINITIONS)
-            AddToDefinitions(
-                TARGET ${ARG_TARGET}
-                DEFINITIONS ${${LIBNAME}_DEFINITIONS}
-            )
-        endif()
-
-        # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_INCLUDE_DIRS ${ARG_PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-    else ()
-        message(FATAL_ERROR "Could not locate libraries for ${ARG_PACKAGE}")
-    endif()
-
-    if (${LIBNAME}_INCLUDE_DIRS)
-        foreach (dir ${${LIBNAME}_INCLUDE_DIRS})
-            AddToIncludes(
-                TARGET ${ARG_TARGET}
-                INC_PATH ${dir}
-            )
-        endforeach()
+    if (TARGET ${ARG_PACKAGE_TARGET})
+        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${ARG_PACKAGE_TARGET})
+    else()
+        AddNonStandardPackage(
+            TARGET ${ARG_TARGET}
+            PACKAGE ${ARG_PACKAGE_NAME}
+            LIBRARY_VARIABLE ${ARG_TARGET_NAME}_LIBRARIES
+            INCLUDE_VARIABLE ${ARG_TARGET_NAME}_INCLUDE_DIRS
+            DEFINITIONS_VARIABLE ${ARG_TARGET_NAME}_DEFINITIONS
+        )
     endif()
 endfunction()
 
@@ -150,7 +134,7 @@ function(AddNonStandardPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE;LIBRARY_VARIABLE;INCLUDE_VARIABLE;LINK_VARIABLE;DEFINITIONS_VARIABLE"
+        "TARGET;PACKAGE;LIBRARY_VARIABLE;INCLUDE_VARIABLE;DEFINITIONS_VARIABLE"
         ""
         ${ARGN}
     )
@@ -165,7 +149,7 @@ function(AddNonStandardPackage)
 
         find_package(${ARG_PACKAGE} REQUIRED)
         
-        if (ARG_LIBRARY_VARIABLE)
+        if (ARG_LIBRARY_VARIABLE AND ${ARG_LIBRARY_VARIABLE})
             # Reverse them first, as later on they will be added in reverse order
             list(REVERSE ${ARG_LIBRARY_VARIABLE})
             foreach(lib ${${ARG_LIBRARY_VARIABLE}})
@@ -176,7 +160,7 @@ function(AddNonStandardPackage)
             endforeach()
         endif()
             
-        if(ARG_INCLUDE_VARIABLE)
+        if(ARG_INCLUDE_VARIABLE AND ${ARG_INCLUDE_VARIABLE})
             foreach(dir ${${ARG_INCLUDE_VARIABLE}})
                 AddToIncludes(
                     TARGET ${ARG_TARGET}
@@ -185,7 +169,7 @@ function(AddNonStandardPackage)
             endforeach()
         endif()
 
-        if (ARG_DEFINITIONS_VARIABLE)
+        if (ARG_DEFINITIONS_VARIABLE AND ${ARG_DEFINITIONS_VARIABLE})
             AddToDefinitions(
                 TARGET ${ARG_TARGET}
                 DEFINITIONS ${${ARG_DEFINITIONS_VARIABLE}}
@@ -247,9 +231,8 @@ function(AddLibrary)
         endif()
     endif()
 
-
     if (OUTPUT_LIB)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${OUTPUT_LIB})
+        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${OUTPUT_LIB} CACHE INTERNAL "")
     else()
         message(FATAL_ERROR "Could not find library ${ARG_LIBRARY}")
     endif()
