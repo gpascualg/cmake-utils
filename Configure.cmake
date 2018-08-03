@@ -1,6 +1,3 @@
-# -[ Export build
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
-
 # -[ Good looking Ninja
 include(CheckCXXCompilerFlag)
 macro(AddCXXFlagIfSupported flag test)
@@ -11,11 +8,6 @@ macro(AddCXXFlagIfSupported flag test)
    endif()
 endmacro()
 
-if("Ninja" STREQUAL ${CMAKE_GENERATOR})
-   AddCXXFlagIfSupported(-fdiagnostics-color COMPILER_SUPPORTS_fdiagnostics-color) # GCC
-   AddCXXFlagIfSupported(-fcolor-diagnostics COMPILER_SUPPORTS_fcolor-diagnostics) # Clang
-endif()
-
 function(CopyCommands)
     if (UNIX)
         add_custom_target(CopyCommands ALL
@@ -25,3 +17,17 @@ function(CopyCommands)
         )
     endif()
 endfunction()
+
+# Make sure we are in the required version
+if (${CMAKE_VERSION} VERSION_LESS "3.5.0") 
+    message(FATAL_ERROR "Please use CMake 3.5 or greater")
+endif()
+
+# Colors for ninja
+if("Ninja" STREQUAL ${CMAKE_GENERATOR})
+   AddCXXFlagIfSupported(-fdiagnostics-color COMPILER_SUPPORTS_fdiagnostics-color) # GCC
+   AddCXXFlagIfSupported(-fcolor-diagnostics COMPILER_SUPPORTS_fcolor-diagnostics) # Clang
+endif()
+
+# -[ Export build
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")

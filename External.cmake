@@ -59,10 +59,16 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;ALWAYS_BUILD"
-        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;BUILD_TARGET"
+        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
+
+    if (ARG_INSTALL_NAME)
+        message("RequireExternal with INSTALL_NAME is deprecated, please use PACKAGE_NAME and PACKAGE_TARGET")
+        set(ARG_PACKAGE_NAME ${ARG_INSTALL_NAME})
+        set(ARG_PACKAGE_TARGET ${ARG_INSTALL_NAME})
+    endif()
 
     if (NOT ARG_MODULE AND NOT ARG_URL)
         message(FATAL_ERROR "External module not specified")
@@ -136,10 +142,6 @@ function(RequireExternal)
             endif()
         else()
             set(INSTALL_COMMAND "echo") # TODO: Find a better no-op
-        endif()
-
-        if (ARG_INSTALL_NAME)
-            set(${ARG_TARGET}_INSTALLED ${${ARG_TARGET}_INSTALLED} ${ARG_INSTALL_NAME} CACHE INTERNAL "")
         endif()
 
         if (NOT ARG_SKIP_BUILD)
@@ -289,22 +291,66 @@ function(RequireExternal)
         endif()
     endif()
 
-    if (NOT ARG_SKIP_BUILD)
+    if (NOT ARG_SKIP_BUILD OR NOT ARG_SKIP_INSTALL)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
-        if (EXISTS "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
+
+        if (NOT ARG_SKIP_INSTALL)
+            if (ARG_INSTALL_INCLUDE)
+                # Find if files are already copied
+                unset(package_files)
+                file(GLOB_RECURSE package_files "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include/*")
+
+                foreach(filepath ${package_files})
+                    string(LENGTH ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include/ base_path_len)
+                    string(SUBSTRING ${filepath} ${base_path_len} -1 filename)
+
+                    if (EXISTS ${THIRD_PARTY_PREFIX}/include/${filename})
+                        set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
+                        # TODO: Should we check for all files? I deem it unnecessary, as GLOB_RECURSE goes from
+                        # inner-level to top-level
+                        break()
+                    endif()
+                endforeach()
+            else()
+                # Find if package is already installed (do not actually add it, RUN_DRY)
+                AddPackage(
+                    TARGET ${ARG_TARGET}
+                    PACKAGE ${ARG_PACKAGE_NAME}
+                    PACKAGE_TARGET ${ARG_PACKAGE_TARGET}
+                    RUN_DRY ${ARG_PACKAGE_NAME}_FOUND
+                )
+
+                if (${ARG_PACKAGE_NAME}_FOUND)
+                    set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
+                endif()
+            endif()
+        elseif (EXISTS "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/CMakeLists.txt")
+            # Old way of doing things, only checks if it has been cloned
             set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
         endif()
     else()
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
     endif()
 
-    #message("\t${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND}")
+    # message("\t${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND}")
 
     if (NOT ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND)
         set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")
     endif()
 
     set(${ARG_TARGET}_ALL_EP ${${ARG_TARGET}_ALL_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")
+
+    # Once everything has been set, try to add package
+    if (ARG_PACKAGE_NAME)
+        ResolveExternal(TARGET ${ARG_TARGET})
+        if (${ARG_TARGET}_IS_RESOLVED)
+            AddPackage(
+                TARGET ${ARG_TARGET}
+                PACKAGE ${ARG_PACKAGE_NAME}
+                PACKAGE_TARGET ${ARG_PACKAGE_TARGET}
+            )
+        endif()
+    endif()
 endfunction()
 
 function(ResolveExternal)

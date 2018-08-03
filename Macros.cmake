@@ -56,15 +56,36 @@ function(AddPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE"
+        "TARGET;PACKAGE;PACKAGE_TARGET;RUN_DRY"
         "HINTS"
         ${ARGN}
     )
+
+    if (NOT ARG_PACKAGE_TARGET)
+        set(ARG_PACKAGE_TARGET ${ARG_PACKAGE})
+    endif()
     
-    if (ARG_HINTS)
-        find_package(${ARG_PACKAGE} REQUIRED HINTS ${ARG_HINTS})
+    # Make sure we are in the correct prefix
+    ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
+    if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
+        list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
+    endif()
+
+    if (ARG_RUN_DRY)
+        if (ARG_HINTS)
+            find_package(${ARG_PACKAGE} QUIET HINTS ${ARG_HINTS})
+        else()
+            find_package(${ARG_PACKAGE} QUIET)
+        endif()
+
+        set(${ARG_RUN_DRY} ${${ARG_PACKAGE}_FOUND} PARENT_SCOPE)
+        return()
     else()
-        find_package(${ARG_PACKAGE} REQUIRED)
+        if (ARG_HINTS)
+            find_package(${ARG_PACKAGE} REQUIRED HINTS ${ARG_HINTS})
+        else()
+            find_package(${ARG_PACKAGE} REQUIRED)
+        endif()
     endif()
 
     string(TOUPPER ${ARG_PACKAGE} LIBNAME)
@@ -77,9 +98,9 @@ function(AddPackage)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
     elseif (${ARG_PACKAGE}_LIBRARIES)
         AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARIES})
-    elseif (TARGET ${ARG_PACKAGE})
+    elseif (TARGET ${ARG_PACKAGE_TARGET})
         # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE} INTERFACE_LINK_LIBRARIES)
+        get_target_property(${LIBNAME}_LIBRARIES ${ARG_PACKAGE_TARGET} INTERFACE_LINK_LIBRARIES)
         if (${LIBNAME}_LIBRARIES)
             # Reverse them first, as later on they will be added in reverse order
             list(REVERSE ${LIBNAME}_LIBRARIES)
@@ -92,21 +113,25 @@ function(AddPackage)
         endif()
 
         # TODO: Revisit this, it won't play nice with build types
-        # Link after linking interface libraries
-        get_target_property(${ARG_PACKAGE}_LIBRARY ${ARG_PACKAGE} LOCATION)
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE}_LIBRARY})
+        # Link after linking interface libraries, unless it is an interface, which does not allow
+        # to use location property
+        get_target_property(${ARG_PACKAGE_TARGET}_TYPE ${ARG_PACKAGE_TARGET} TYPE)
+        if (NOT ${ARG_PACKAGE_TARGET}_TYPE STREQUAL "INTERFACE_LIBRARY")
+            get_target_property(${ARG_PACKAGE_TARGET}_LIBRARY ${ARG_PACKAGE_TARGET} LOCATION)
+            AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${${ARG_PACKAGE_TARGET}_LIBRARY})
+        endif()
         
         # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_DEFINITIONS ${ARG_PACKAGE} INTERFACE_COMPILE_DEFINITIONS)
+        get_target_property(${LIBNAME}_DEFINITIONS ${ARG_PACKAGE_TARGET} INTERFACE_COMPILE_DEFINITIONS)
         if (${LIBNAME}_DEFINITIONS)
-            AddDefinition(
+            AddToDefinitions(
                 TARGET ${ARG_TARGET}
                 DEFINITIONS ${${LIBNAME}_DEFINITIONS}
             )
         endif()
 
         # TODO: And this, should we automatically do it via target_link_libraries?
-        get_target_property(${LIBNAME}_INCLUDE_DIRS ${ARG_PACKAGE} INTERFACE_INCLUDE_DIRECTORIES)
+        get_target_property(${LIBNAME}_INCLUDE_DIRS ${ARG_PACKAGE_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
     else ()
         message(FATAL_ERROR "Could not locate libraries for ${ARG_PACKAGE}")
     endif()
@@ -132,9 +157,8 @@ function(AddNonStandardPackage)
 
     ResolveExternal(TARGET ${ARG_TARGET} SILENT)
     if (${ARG_TARGET}_IS_RESOLVED)
-        ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
-
         # Make sure we are in the correct prefix
+        ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
         if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
             list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
         endif()
@@ -162,7 +186,7 @@ function(AddNonStandardPackage)
         endif()
 
         if (ARG_DEFINITIONS_VARIABLE)
-            AddDefinition(
+            AddToDefinitions(
                 TARGET ${ARG_TARGET}
                 DEFINITIONS ${${ARG_DEFINITIONS_VARIABLE}}
             )
@@ -255,42 +279,50 @@ endfunction()
 function(AddToSources)
     cmake_parse_arguments(
         ARG
-        "INCLUDE"
+        "INCLUDE;NO_DEDUCE_FOLDER"
         "TARGET;SRC_PATH;INC_PATH;FOLDER_NAME"
-        "GLOB_SEARCH"
+        "GLOB_SEARCH;SOURCES"
         ${ARGN}
     )
 
     if (ARG_SRC_PATH)
-        set(TMP_SOURCES_INCLUDE "" CACHE INTERNAL "")
-
-        # Add each file and extension
-        foreach (ext ${ARG_GLOB_SEARCH})
-            file(GLOB TMP_SOURCES ${ARG_SRC_PATH}/*${ext})
-
-            if(ARG_INC_PATH)
-                file(GLOB TMP_INCLUDES ${ARG_INC_PATH}/*${ext})
-            else()
-                set(TMP_INCLUDES "")
-            endif()
-
-            set(TMP_SOURCES_INCLUDE ${TMP_SOURCES_INCLUDE} ${TMP_SOURCES} ${TMP_INCLUDES} CACHE INTERNAL "")
-            set(${ARG_TARGET}_SOURCES ${${ARG_TARGET}_SOURCES} ${TMP_SOURCES} ${TMP_INCLUDES} CACHE INTERNAL "")
-        endforeach()
+        message("AddToSources using SRC_PATH is deprecated, please use SOURCES")
+        list(APPEND ARG_SOURCES ${ARG_SRC_PATH})
     endif()
 
-    if (ARG_FOLDER_NAME)
-        set(${ARG_TARGET}_FOLDERS ${${ARG_TARGET}_FOLDERS} ${ARG_FOLDER_NAME} CACHE INTERNAL "")
-        set(${ARG_TARGET}_FOLDERS_${ARG_FOLDER_NAME} ${TMP_SOURCES_INCLUDE} CACHE INTERNAL "")
+    if (ARG_INC_PATH)
+        message(FATAL_ERROR "AddToSources using INCL_PATH is deprecated, either use SOURCES with INCLUDE flag, or use AddToIncludes")
+        list(APPEND ARG_SOURCES ${ARG_SRC_PATH})
+    endif()
+
+    if (ARG_SOURCES)
+        # Add each file and extension
+        foreach (srcpath ${ARG_SOURCES})
+            set(TMP_SOURCES_INCLUDE "")
+
+            foreach (ext ${ARG_GLOB_SEARCH})
+                file(GLOB TMP_SOURCES ${srcpath}/*${ext})
+                
+                set(TMP_SOURCES_INCLUDE ${TMP_SOURCES_INCLUDE} ${TMP_SOURCES})
+                set(${ARG_TARGET}_SOURCES ${${ARG_TARGET}_SOURCES} ${TMP_SOURCES} CACHE INTERNAL "")
+            endforeach()
+
+            if (NOT ARG_NO_DEDUCE_FOLDER)
+                get_filename_component(FOLDER_NAME ${srcpath} NAME)
+                
+                set(${ARG_TARGET}_FOLDERS ${${ARG_TARGET}_FOLDERS} ${FOLDER_NAME} CACHE INTERNAL "")
+                set(${ARG_TARGET}_FOLDERS_${FOLDER_NAME} ${TMP_SOURCES_INCLUDE} CACHE INTERNAL "")
+
+                unset(FOLDER_NAME)
+            endif()
+        endforeach()
     endif()
 
     if (ARG_INCLUDE)
         # Add include dirs
-        if(NOT ARG_INC_PATH)
-            set(ARG_INC_PATH ${ARG_SRC_PATH})
-        endif()
-
-        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
+        foreach (srcpath ${ARG_SOURCES})
+            set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${srcpath} CACHE INTERNAL "")
+        endforeach()
     endif()
 endfunction()
 
@@ -299,15 +331,17 @@ function(AddToIncludes)
         ARG
         ""
         "TARGET;INC_PATH;"
-        ""
+        "INCLUDES"
         ${ARGN}
     )
 
     # Add include dirs
-    set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${ARG_INC_PATH} CACHE INTERNAL "")
+    foreach (include ${ARG_INC_PATH} ${ARG_INCLUDES})
+        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${include} CACHE INTERNAL "")
+    endforeach()
 endfunction()
 
-function(AddDefinition)
+function(AddToDefinitions)
     cmake_parse_arguments(
         ARG
         ""
@@ -315,6 +349,22 @@ function(AddDefinition)
         "DEFINITIONS"
         ${ARGN}
     )
+
+    AddDefinition(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINITIONS} SENTINEL)
+endfunction()
+
+function(AddDefinition)
+    cmake_parse_arguments(
+        ARG
+        "SENTINEL"
+        "TARGET"
+        "DEFINITIONS"
+        ${ARGN}
+    )
+
+    if (NOT ARG_SENTINEL)
+        message("AddDefinition is depecrated, please use AddToDefinitions")
+    endif()
 
     set(${ARG_TARGET}_DEFINES ${${ARG_TARGET}_DEFINES} ${ARG_DEFINITIONS} CACHE INTERNAL "")
 endfunction()
@@ -387,15 +437,6 @@ function(BuildNow)
         INC_PATH ${EXTERNAL_DEPENDENCIES}/include
     )
 
-    foreach(dep ${${ARG_TARGET}_INSTALLED})
-        message("Auto-finding ${dep}")
-        AddPackage(
-            TARGET ${ARG_TARGET}
-            PACKAGE ${dep} 
-            HINTS ${EXTERNAL_DEPENDENCIES}
-        )
-    endforeach()
-
     foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
         string(FIND ${dir} ${PROJECT_SOURCE_DIR} INTERNAL_INCLUDE)
         string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_EXTERNAL)
@@ -462,7 +503,7 @@ function(BuildNow)
     endif()
 
     # Process definitions
-    AddDefinition(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINES})
+    AddToDefinitions(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINES})
     foreach(def ${${ARG_TARGET}_DEFINES})
         target_compile_definitions(${ARG_TARGET} PUBLIC ${def})
         message("${ARG_TARGET} compile definition -D${def}")
