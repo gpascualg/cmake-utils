@@ -74,6 +74,10 @@ function(RequireExternal)
         message(FATAL_ERROR "External module not specified")
     endif()
 
+    if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE)
+        message(WARNING "Either specify an install target with PACKAGE_NAME or INSTALL_INCLUDE, or disable install with SKIP_INSTALL. No reliable runtime checks can be done.")
+    endif()
+
     if (ARG_MODULE)
         string(REGEX MATCH "^([a-z]|[A-Z]|_|-|[0-9])+[^/]" GITHUB_USER ${ARG_MODULE})
         string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9])+[^:])" GITHUB_REPO ${ARG_MODULE})
@@ -294,7 +298,7 @@ function(RequireExternal)
     if (NOT ARG_SKIP_BUILD OR NOT ARG_SKIP_INSTALL)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
 
-        if (NOT ARG_SKIP_INSTALL)
+        if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_PACKAGE_NAME))
             if (ARG_INSTALL_INCLUDE)
                 # Find if files are already copied
                 unset(package_files)
@@ -312,6 +316,11 @@ function(RequireExternal)
                     endif()
                 endforeach()
             else()
+                # Make sure there is a target
+                if (NOT ARG_PACKAGE_TARGET)
+                    set(ARG_PACKAGE_TARGET ${ARG_PACKAGE_NAME})
+                endif()
+
                 # Find if package is already installed (do not actually add it, RUN_DRY)
                 AddPackage(
                     TARGET ${ARG_TARGET}
@@ -342,7 +351,7 @@ function(RequireExternal)
 
     # Once everything has been set, try to add package
     if (ARG_PACKAGE_NAME)
-        ResolveExternal(TARGET ${ARG_TARGET})
+        ResolveExternal(TARGET ${ARG_TARGET} SILENT)
         if (${ARG_TARGET}_IS_RESOLVED)
             AddPackage(
                 TARGET ${ARG_TARGET}
