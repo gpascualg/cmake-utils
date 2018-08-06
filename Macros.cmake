@@ -18,7 +18,7 @@ function(AddDependency)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;DEPENDENCY"
+        "TARGET;DEPENDENCY;MODE"
         ""
         ${ARGN}
     )
@@ -27,8 +27,13 @@ function(AddDependency)
         message(FATAL_ERROR "AddDependency should be used only with other targets, use AddPackage or AddLibrary")
     endif()
 
+    if (NOT ARG_MODE)
+        set(ARG_MODE "AUTO")
+    endif()
+
+    # This is a custom target, no need to do manual processing
     if (";${ALL_TARGETS};" MATCHES ";${ARG_DEPENDENCY};")
-        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
+        set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
 
         # TODO: Only add it if it was declared private in first instance
         set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${${ARG_DEPENDENCY}_INCLUDE_DIRECTORIES} CACHE INTERNAL "")
@@ -54,7 +59,7 @@ function(AddDependency)
     get_target_property(${ARG_PACKAGE_TARGET}_TYPE ${ARG_PACKAGE_TARGET} TYPE)
     if (NOT ${ARG_PACKAGE_TARGET}_TYPE STREQUAL "INTERFACE_LIBRARY")
         get_target_property(${ARG_PACKAGE_TARGET}_LIBRARY ${ARG_PACKAGE_TARGET} LOCATION)
-        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${${ARG_PACKAGE_TARGET}_LIBRARY} CACHE INTERNAL "")
+        set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${${ARG_PACKAGE_TARGET}_LIBRARY} CACHE INTERNAL "")
     endif()
     
     # TODO: And this, should we automatically do it via target_link_libraries?
@@ -83,7 +88,7 @@ function(AddPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE;PACKAGE_TARGET;RUN_DRY"
+        "TARGET;PACKAGE;PACKAGE_TARGET;RUN_DRY;MODE"
         "HINTS"
         ${ARGN}
     )
@@ -92,6 +97,10 @@ function(AddPackage)
         set(ARG_PACKAGE_TARGET ${ARG_PACKAGE})
     endif()
     
+    if (NOT ARG_MODE)
+        set(ARG_MODE "AUTO")
+    endif()
+
     # Make sure we are in the correct prefix
     ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
     if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
@@ -118,11 +127,16 @@ function(AddPackage)
     string(TOUPPER ${ARG_PACKAGE} LIBNAME)
 
     if (TARGET ${ARG_PACKAGE_TARGET})
-        AddDependency(TARGET ${ARG_TARGET} DEPENDENCY ${ARG_PACKAGE_TARGET})
+        AddDependency(
+            TARGET ${ARG_TARGET} 
+            DEPENDENCY ${ARG_PACKAGE_TARGET}
+            MODE ${ARG_MODE}
+        )
     else()
         AddNonStandardPackage(
             TARGET ${ARG_TARGET}
             PACKAGE ${ARG_PACKAGE_NAME}
+            MODE ${ARG_MODE}
             LIBRARY_VARIABLE ${ARG_PACKAGE_TARGET}_LIBRARIES
             INCLUDE_VARIABLE ${ARG_PACKAGE_TARGET}_INCLUDE_DIRS
             DEFINITIONS_VARIABLE ${ARG_PACKAGE_TARGET}_DEFINITIONS
@@ -134,10 +148,14 @@ function(AddNonStandardPackage)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;PACKAGE;LIBRARY_VARIABLE;INCLUDE_VARIABLE;DEFINITIONS_VARIABLE"
+        "TARGET;PACKAGE;LIBRARY_VARIABLE;INCLUDE_VARIABLE;DEFINITIONS_VARIABLE;MODE"
         ""
         ${ARGN}
     )
+    
+    if (NOT ARG_MODE)
+        set(ARG_MODE "AUTO")
+    endif()
 
     ResolveExternal(TARGET ${ARG_TARGET} SILENT)
     if (${ARG_TARGET}_IS_RESOLVED)
@@ -156,6 +174,7 @@ function(AddNonStandardPackage)
                 AddLibrary(
                     TARGET ${ARG_TARGET}
                     LIBRARY ${lib}
+                    MODE ${ARG_MODE}
                 )
             endforeach()
         endif()
@@ -182,7 +201,7 @@ function(AddLibrary)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;LIBRARY;PLATFORM"
+        "TARGET;LIBRARY;PLATFORM;MODE"
         "HINTS"
         ${ARGN}
     )
@@ -190,6 +209,10 @@ function(AddLibrary)
     if (ARG_PLATFORM AND NOT ${ARG_PLATFORM})
         message("${ARG_TARGET} not linking to ${ARG_LIBRARY} due to platform mismatch (${ARG_PLATFORM})")
         return()
+    endif()
+
+    if (NOT ARG_MODE)
+        set(ARG_MODE "AUTO")
     endif()
 
     # Check if it is linked via "-[l]<name>"
@@ -229,12 +252,21 @@ function(AddLibrary)
                 find_library(OUTPUT_LIB ${LOOKUP_NAME})
             endif()
         endif()
+
+        # TODO: Should we really assume GCC libs are safe?
+        if (NOT OUTPUT_LIB)
+            string(SUBSTRING ${LOOKUP_NAME} 0 3 GCC_START)
+            if (${GCC_START} STREQUAL "gcc")
+                unset(OUTPUT_LIB CACHE)
+                set(OUTPUT_LIB ${LOOKUP_NAME})
+            endif()
+        endif()
     endif()
 
     if (OUTPUT_LIB)
-        set(${ARG_TARGET}_DEPENDENCIES ${${ARG_TARGET}_DEPENDENCIES} ${OUTPUT_LIB} CACHE INTERNAL "")
+        set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${OUTPUT_LIB} CACHE INTERNAL "")
     else()
-        message(FATAL_ERROR "Could not find library ${ARG_LIBRARY}")
+        message(FATAL_ERROR "Could not find library ${ARG_LIBRARY}, with lookup name ${LOOKUP_NAME}")
     endif()
 
     # Otherwise at next run it will conflict
@@ -333,7 +365,25 @@ function(AddToDefinitions)
         ${ARGN}
     )
 
-    AddDefinition(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINITIONS} SENTINEL)
+    set(ADD_MODE "PUBLIC")
+    set(ADD_START 0)
+    set(ADD_LEN 0)
+    set(ADD_CUR 0)
+
+    foreach(def ${ARG_DEFINITIONS} "PRIVATE") # Last one triggers at end
+        if (${def} STREQUAL "PUBLIC" OR ${def} STREQUAL "PRIVATE" OR ${def} STREQUAL "INTERFACE")
+            if (NOT ${ADD_LEN} STREQUAL "0")
+                list(SUBLIST ARG_DEFINITIONS ${ADD_START} ${ADD_LEN} CURRENT_DEFINITIONS)
+                set(${ARG_TARGET}_${ADD_MODE}_DEFINITIONS ${${ARG_TARGET}_${ADD_MODE}_DEFINITIONS} ${CURRENT_DEFINITIONS} CACHE INTERNAL "")
+            endif()
+
+            set(ADD_MODE ${def})
+            MATH(EXPR ADD_START "${ADD_START} + ${ADD_LEN} + 1")
+            set(ADD_LEN "0 - 1") # Up ahead there is a +1
+        endif()
+
+        MATH(EXPR ADD_LEN "${ADD_LEN} + 1")
+    endforeach()
 endfunction()
 
 function(AddDefinition)
@@ -346,38 +396,8 @@ function(AddDefinition)
     )
 
     if (NOT ARG_SENTINEL)
-        message("AddDefinition is depecrated, please use AddToDefinitions")
+        message(FATAL_ERROR "AddDefinition is depecrated, please use AddToDefinitions")
     endif()
-
-    set(${ARG_TARGET}_DEFINES ${${ARG_TARGET}_DEFINES} ${ARG_DEFINITIONS} CACHE INTERNAL "")
-endfunction()
-
-# TODO(gpascual): Might not be needed at all, considering all target_link_libraries are PUBLIC
-function(RecursiveDependencies)
-    cmake_parse_arguments(
-        ARG
-        ""
-        "TARGET;DEPENDENCY;"
-        ""
-        ${ARGN}
-    )
-
-    foreach(dir ${${ARG_DEPENDENCY}_LINK_DIRS})
-        message("Linking ${ARG_TARGET} to dir ${dir}")
-        link_directories(${dir})
-    endforeach()
-
-    foreach (dep ${${ARG_DEPENDENCY}_DEPENDENCIES})
-        message("${ARG_TARGET} links to ${dep}")
-        target_link_libraries(${ARG_TARGET}
-            PUBLIC ${dep}
-        )
-
-        RecursiveDependencies(
-            TARGET ${ARG_TARGET}
-            DEPNDENCY ${dep}
-        )
-    endforeach()
 endfunction()
 
 function(BuildNow)
@@ -385,7 +405,7 @@ function(BuildNow)
         ARG
         "EXECUTABLE;STATIC_LIB;SHARED_LIB;NO_PREFIX;C++11"
         "TARGET;BUILD_FUNC;OUTPUT_NAME;"
-        "DEPENDENCIES;DEFINES"
+        "DEPENDENCIES"
         ${ARGN}
     )
 
@@ -432,50 +452,41 @@ function(BuildNow)
     endforeach()
 
     # Iterate in reverse order to avoid messing dependencies
-    list(REVERSE ${ARG_TARGET}_DEPENDENCIES)
-    foreach (dep ${${ARG_TARGET}_DEPENDENCIES})
-        message("${ARG_TARGET} links to ${dep}")
-        # target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
+    foreach(mode "AUTO" "DEBUG" "OPTIMIZED")
+        list(REVERSE ${ARG_TARGET}_${mode}_DEPENDENCIES)
+        foreach (dep ${${ARG_TARGET}_${mode}_DEPENDENCIES})
+            Log("${ARG_TARGET} links to ${dep}")
+            # target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
 
-        if (ARG_EXECUTABLE)
-            target_link_libraries(${ARG_TARGET} PUBLIC ${dep})
-        else()
-            target_link_libraries(${ARG_TARGET} INTERFACE ${dep})
-        endif()
+            set(LINK_MODE "")
+            if (NOT ${mode} STREQUAL "AUTO")
+                string(TOLOWER ${mode} LINK_MODE)
+            endif()
 
-        RecursiveDependencies(
-            TARGET ${ARG_TARGET}
-            DEPENDENCY ${dep}
-        )
+            if (ARG_EXECUTABLE)
+                target_link_libraries(${ARG_TARGET} PUBLIC ${LINK_MODE} ${dep})
+            else()
+                target_link_libraries(${ARG_TARGET} INTERFACE ${LINK_MODE} ${dep})
+            endif()
+        endforeach()
     endforeach()
 
-    foreach (dep ${${ARG_TARGET}_DEBUG_DEPENDENCIES})
-        message("${ARG_TARGET} links to debug ${dep}")
-        target_link_libraries(${ARG_TARGET}
-            PUBLIC debug ${dep}
-        )
-    endforeach()
-
-    foreach (dep ${${ARG_TARGET}_OPTIMIZED_DEPENDENCIES})
-        message("${ARG_TARGET} links to optimized ${dep}")
-        target_link_libraries(${ARG_TARGET}
-            PUBLIC optimized ${dep}
-        )
-    endforeach()
-
-    foreach (dep ${${ARG_TARGET}_FORCE_DEPENDENCIES})
-        add_dependencies(${ARG_TARGET} ${dep})
-    endforeach()
+    # TODO(gpascualg): This is no longer used, add it?
+    #   It should be automatically enforced via dependencies above
+    # foreach (dep ${${ARG_TARGET}_FORCE_DEPENDENCIES})
+    #     add_dependencies(${ARG_TARGET} ${dep})
+    # endforeach()
 
     foreach (folder ${${ARG_TARGET}_FOLDERS})
         source_group(${folder} FILES ${${ARG_TARGET}_FOLDERS_${folder}})
     endforeach()
 
+    # TODO(gpascualg): Do we need this at all?
     if (UNIX)
         if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
-            set(ARG_DEFINES ${ARG_DEFINES} DEBUG)
+            AddToDefinitions(TARGET ${ARG_TARGET} DEFINITIONS DEBUG)
         else()
-            set(ARG_DEFINES ${ARG_DEFINES} NDEBUG)
+            AddToDefinitions(TARGET ${ARG_TARGET} DEFINITIONS NDEBUG)
         endif()
     endif()
 
@@ -486,16 +497,18 @@ function(BuildNow)
     endif()
 
     # Process definitions
-    AddToDefinitions(TARGET ${ARG_TARGET} DEFINITIONS ${ARG_DEFINES})
-    foreach(def ${${ARG_TARGET}_DEFINES})
-        target_compile_definitions(${ARG_TARGET} PUBLIC ${def})
-        message("${ARG_TARGET} compile definition -D${def}")
+    foreach(mode "PUBLIC" "INTERFACE" "PRIVATE")
+        foreach(def ${${ARG_TARGET}_${mode}_DEFINITIONS})
+            target_compile_definitions(${ARG_TARGET} ${mode} ${def})
+            Log("${ARG_TARGET} compile definition -D${def}:${mode}")
+        endforeach()
     endforeach()
 
     set_target_properties(${ARG_TARGET} PROPERTIES
         OUTPUT_NAME ${ARG_OUTPUT_NAME}
     )
 
+    # TODO: Why? Do we really need it now? It should have already been created
     CreateTarget(TARGET ${ARG_TARGET})
 endfunction()
 
@@ -559,13 +572,17 @@ endfunction()
 
 function(ResetAllTargets)
     foreach(target ${ALL_TARGETS})
-        set(${target}_DEPENDENCIES "" CACHE INTERNAL "")
         set(${target}_INSTALLED "" CACHE INTERNAL "")
         set(${target}_LINK_DIRS "" CACHE INTERNAL "")
-        set(${target}_DEFINES "" CACHE INTERNAL "")
-        set(${target}_DEBUG_DEPENDENCIES "" CACHE INTERNAL "")
-        set(${target}_OPTIMIZED_DEPENDENCIES "" CACHE INTERNAL "")
-        set(${target}_FORCE_DEPENDENCIES "" CACHE INTERNAL "")
+
+        foreach(mode "PUBLIC" "INTERFACE" "PRIVATE")
+            set(${target}_${mode}_DEFINITIONS "" CACHE INTERNAL "")
+        endforeach()
+
+        foreach(mode "AUTO" "DEBUG" "OPTIMIZED" "FORCE")
+            set(${target}_${mode}_DEPENDENCIES "" CACHE INTERNAL "")
+        endforeach()
+
         set(${target}_SOURCES "" CACHE INTERNAL "")
         set(${target}_INCLUDE_DIRECTORIES "" CACHE INTERNAL "")
         set(${target}_UNRESOLVED_EP "" CACHE INTERNAL "")

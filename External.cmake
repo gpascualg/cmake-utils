@@ -55,6 +55,55 @@ function(ExternalDirectory)
 
 endfunction()
 
+function(AreAllFilesEqual)
+    cmake_parse_arguments(
+        ARG
+        "ONLY_FIRST;NO_HASHING"
+        "RESULT;SOURCE;DEST"
+        ""
+        ${ARGN}
+    )
+
+    file(GLOB_RECURSE package_files "${ARG_SOURCE}/*")
+    set(I "0")
+
+    foreach(filepath ${package_files})
+        string(LENGTH ${ARG_SOURCE}/ base_path_len)
+        string(SUBSTRING ${filepath} ${base_path_len} -1 filename)
+
+        if (EXISTS ${ARG_DEST}/${filename})
+            if (NOT ARG_NO_HASHING)
+                # SHA256 seems like an overkill for something like a checksum
+                # MD5 collition rate is still low (although weak, but it doesn't matter here)
+                file(MD5 ${filepath} ORIGINAL_CHECKSUM)
+                file(MD5 ${ARG_DEST}/${filename} COPY_CHECKSUM)
+
+                if (NOT ${ORIGINAL_CHECKSUM} STREQUAL ${COPY_CHECKSUM})
+                    set(${ARG_RESULT} FALSE PARENT_SCOPE)
+                    return()
+                endif()
+            endif()
+
+            if (ARG_ONLY_FIRST)
+                set(${ARG_RESULT} TRUE PARENT_SCOPE)
+                return()
+            endif()
+            
+            MATH(EXPR I "${I} + 1")
+        else()
+            set(${ARG_RESULT} FALSE PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
+
+    list(LENGTH package_files NUM_FILES)
+    if (${NUM_FILES} STREQUAL ${I})
+        set(${ARG_RESULT} TRUE PARENT_SCOPE)
+    else()
+        set(${ARG_RESULT} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
@@ -85,7 +134,7 @@ function(RequireExternal)
         string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9]|.)+$)" GITHUB_TAG ${ARG_MODULE})
         set(GITHUB_TAG ${CMAKE_MATCH_1})
 
-        message("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
+        Log("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
     elseif (ARG_URL)
         string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9]|[.])+)([.])([a-z]|[A-Z]|_|-|[0-9])+$" GITHUB_REPO ${ARG_URL})
         set(FILENAME ${CMAKE_MATCH_1})
@@ -95,7 +144,7 @@ function(RequireExternal)
         string(REGEX MATCH "(-)(([a-z]|[A-Z]|_|-|[0-9]|[.])+)$" TMP ${FILENAME})
         set(GITHUB_TAG ${CMAKE_MATCH_2})
 
-        message("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
+        Log("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
     endif()
 
     if (NOT ARG_INC_PATH)
@@ -133,10 +182,21 @@ function(RequireExternal)
         if (NOT ARG_SKIP_INSTALL)
             # TODO: Auto-scan directory for include/ if not building
             if (ARG_INSTALL_INCLUDE)
-                set(INSTALL_COMMAND "${CMAKE_COMMAND}")
-                list(APPEND INSTALL_COMMAND -E copy_directory)
-                list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
-                list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
+                AreAllFilesEqual(
+                    RESULT ALL_COPIED_FILES_FOUND
+                    SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include"
+                    DEST "${THIRD_PARTY_PREFIX}/include"
+                )
+
+                # Some (all) are missing, add them
+                if (NOT ALL_COPIED_FILES_FOUND)
+                    set(INSTALL_COMMAND "${CMAKE_COMMAND}")
+                    list(APPEND INSTALL_COMMAND -E copy_directory)
+                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
+                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
+                else()
+                    set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
+                endif()
             else()
                 if (ARG_INSTALL_COMMAND)
                     set(INSTALL_COMMAND ${ARG_INSTALL_COMMAND})
@@ -145,7 +205,7 @@ function(RequireExternal)
                 endif()
             endif()
         else()
-            set(INSTALL_COMMAND "echo") # TODO: Find a better no-op
+            set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
         endif()
 
         if (NOT ARG_SKIP_BUILD)
@@ -155,14 +215,14 @@ function(RequireExternal)
                 list(APPEND BUILD_COMMAND ${ARG_BUILD_TARGET})
             endif()
         else()
-            set(BUILD_COMMAND "echo")   # TODO: Find a better no-op
+            set(BUILD_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
         endif()
 
         if (ARG_KEEP_UPDATED)
             find_package(Git REQUIRED)
             set(UPDATE_COMMAND ${GIT_EXECUTABLE} "pull")
         else()
-            set(UPDATE_COMMAND "echo")  # TODO: Find a better no-op
+            set(UPDATE_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
         endif()
 
         if (NOT ARG_SKIP_CONFIGURE)
@@ -173,10 +233,11 @@ function(RequireExternal)
             list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_PREFIX=${THIRD_PARTY_PREFIX}")
             list(APPEND CONFIG_COMMAND "-DOVERRIDE_THIRD_PARTY=${THIRD_PARTY_PREFIX}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+            list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_MESSAGE=${CMAKE_INSTALL_MESSAGE}")
             list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
             list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
         else()
-            set(CONFIG_COMMAND "echo") # TODO: Find a better no-op
+            set(CONFIG_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
         endif()
 
         if (ARG_MODULE)
@@ -208,7 +269,7 @@ function(RequireExternal)
         set(I 0)
         set(N -1)
         foreach (step ${ARG_CONFIGURE_STEPS})
-            message("\tExternal ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} requires STEP_${I}")
+            Log("\tExternal ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} requires STEP_${I}")
 
             string(REPLACE " " ";" STEP_LIST ${step})
 
@@ -300,21 +361,10 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_PACKAGE_NAME))
             if (ARG_INSTALL_INCLUDE)
-                # Find if files are already copied
-                unset(package_files)
-                file(GLOB_RECURSE package_files "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include/*")
-
-                foreach(filepath ${package_files})
-                    string(LENGTH ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include/ base_path_len)
-                    string(SUBSTRING ${filepath} ${base_path_len} -1 filename)
-
-                    if (EXISTS ${THIRD_PARTY_PREFIX}/include/${filename})
-                        set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
-                        # TODO: Should we check for all files? I deem it unnecessary, as GLOB_RECURSE goes from
-                        # inner-level to top-level
-                        break()
-                    endif()
-                endforeach()
+                # The variable should already exist from before                
+                if (ALL_COPIED_FILES_FOUND)
+                    set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
+                endif()
             else()
                 # Make sure there is a target
                 if (NOT ARG_PACKAGE_TARGET)
@@ -389,13 +439,13 @@ function(ResolveExternal)
         set(REBUILD_COUNT ${NEXT_REBUILD} CACHE INTERNAL "")
 
         if (NOT ARG_SILENT)
-            message("${ARG_TARGET} NOT RESOLVED")
+            Log("${ARG_TARGET} NOT RESOLVED")
         endif()
     else()
         set(${ARG_TARGET}_IS_RESOLVED TRUE PARENT_SCOPE)
 
         if (NOT ARG_SILENT)
-            message("${ARG_TARGET} RESOLVED")
+            Log("${ARG_TARGET} RESOLVED")
         endif()
     endif()
 endfunction()

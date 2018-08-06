@@ -18,9 +18,15 @@ function(CopyCommands)
     endif()
 endfunction()
 
+macro(Log msg)
+    if (NOT ${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")
+        message(msg)
+    endif()
+endmacro()
+
 # Make sure we are in the required version
-if (${CMAKE_VERSION} VERSION_LESS "3.5.0") 
-    message(FATAL_ERROR "Please use CMake 3.5 or greater")
+if (${CMAKE_VERSION} VERSION_LESS "3.12.0") 
+    message(FATAL_ERROR "Please use CMake 3.12 or greater")
 endif()
 
 # Colors for ninja
@@ -31,3 +37,21 @@ endif()
 
 # -[ Export build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+
+# -[ Verbosity
+if (NOT CMAKE_UTILS_VERBOSE_LEVEL)
+    set(CMAKE_UTILS_VERBOSE_LEVEL "QUIET")
+    set(CMAKE_INSTALL_MESSAGE LAZY)
+endif()
+
+# -[ NO-OP for External projects
+# TODO(gpascualg): Find better no-ops
+if (${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")
+    if (UNIX)
+        set(CMAKE_UTILS_NO_OP_COMMAND "printf" " \r")
+    else()
+        set(CMAKE_UTILS_NO_OP_COMMAND "echo")
+    endif()
+else()
+    set(CMAKE_UTILS_NO_OP_COMMAND "echo" "  > Nothing to do")
+endif()
