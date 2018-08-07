@@ -26,7 +26,7 @@ endmacro()
 
 # Make sure we are in the required version
 if (${CMAKE_VERSION} VERSION_LESS "3.12.0") 
-    message(FATAL_ERROR "Please use CMake 3.12 or greater")
+    message(FATAL_ERROR "Please use CMake 3.12 or greater, you are on ${CMAKE_VERSION}")
 endif()
 
 # Colors for ninja

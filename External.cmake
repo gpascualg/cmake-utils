@@ -13,7 +13,8 @@ function(ExternalInstallDirectory)
     if (OVERRIDE_THIRD_PARTY)
         set(${ARG_VARIABLE} "${OVERRIDE_THIRD_PARTY}" PARENT_SCOPE)
     else()
-        set(${ARG_VARIABLE} "${CMAKE_BINARY_DIR}/third_party" PARENT_SCOPE)
+        string(TOLOWER ${CMAKE_BUILD_TYPE} LOWER_BUILD_TYPE)
+        set(${ARG_VARIABLE} "${CMAKE_BINARY_DIR}/third_party/${LOWER_BUILD_TYPE}" PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -151,20 +152,10 @@ function(RequireExternal)
         set(ARG_INC_PATH "include")
     endif()
 
-    set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
-
-    if (OVERRIDE_THIRD_PARTY)
-        set(THIRD_PARTY_PREFIX "${OVERRIDE_THIRD_PARTY}")
-
-        # TODO: Do we really need this? If its already built, then that's it
-        # if (EXISTS ${OVERRIDE_THIRD_PARTY}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
-        #     # It already exists
-        #     set(THIRD_PARTY_ALREADY_EXISTS ON)
-
-        #     # Placeholder target
-        #     add_custom_target(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG})
-        # endif()
-    endif()
+    # Find where should we be looking to
+    ExternalInstallDirectory(
+        VARIABLE THIRD_PARTY_PREFIX
+    )
 
     # It might have already been referenced by a subproject, do not pull more than once!
     # TODO: Removed "NOT THIRD_PARTY_ALREADY_EXISTS AND "
