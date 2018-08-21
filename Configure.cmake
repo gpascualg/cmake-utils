@@ -1,5 +1,7 @@
-# -[ Good looking Ninja
 include(CheckCXXCompilerFlag)
+include(CheckIncludeFile)
+
+# -[ Good looking Ninja
 macro(AddCXXFlagIfSupported flag test)
    CHECK_CXX_COMPILER_FLAG(${flag} ${test})
    if( ${${test}} )
@@ -17,6 +19,64 @@ function(CopyCommands)
         )
     endif()
 endfunction()
+
+macro(CheckOrSet var)
+    if (NOT ${var})
+        set(${var} FALSE)
+    endif()
+
+    set(${var} ${${var}} PARENT_SCOPE)
+endmacro()
+
+function(CheckConio)
+    check_include_file("conio.h" HAS_CONIO_H)
+
+    if (HAS_CONIO_H)
+        try_compile(HAS_CONIO_KBHIT ${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/cmake-utils/checks/has_kbhit.c)
+    endif()
+    
+    CheckOrSet(HAS_CONIO_H)
+    CheckOrSet(HAS_CONIO_KBHIT)
+endfunction()
+
+function(CheckCurses)
+    check_include_file("ncurses.h" HAS_NCURSES_H)
+    CheckOrSet(HAS_NCURSES_H)
+endfunction()
+
+function(CreateBuildHeader)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        ""
+        ${ARGN}
+    )
+
+    CheckConio()
+    CheckCurses()
+
+    configure_file(
+        ${PROJECT_SOURCE_DIR}/cmake-utils/checks/config.h.in
+        ${CMAKE_BINARY_DIR}/config.h)
+
+    file(COPY ${PROJECT_SOURCE_DIR}/cmake-utils/checks/compat
+        DESTINATION ${CMAKE_BINARY_DIR}/)
+
+    AddToIncludes(
+        TARGET ${ARG_TARGET}
+        INCLUDES
+            ${CMAKE_BINARY_DIR}
+    )
+
+    AddToSources(
+        TARGET ${ARG_TARGET}
+        GLOB_SEARCH ".cpp;"
+        SOURCES 
+            ${CMAKE_BINARY_DIR}/compat
+    )
+endfunction()
+
 
 macro(Log msg)
     if (NOT ${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")

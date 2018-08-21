@@ -1,0 +1,5 @@
+#cmakedefine HAS_CONIO_H
+#cmakedefine HAS_CONIO_KBHIT
+
+#cmakedefine HAS_NCURSES_H
+
