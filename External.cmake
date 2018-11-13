@@ -59,7 +59,7 @@ endfunction()
 function(AreAllFilesEqual)
     cmake_parse_arguments(
         ARG
-        "ONLY_FIRST;NO_HASHING"
+        "ONLY_FIRST;NO_HASHING;ACCEPT_ZERO_FILES"
         "RESULT;SOURCE;DEST"
         ""
         ${ARGN}
@@ -98,6 +98,12 @@ function(AreAllFilesEqual)
     endforeach()
 
     list(LENGTH package_files NUM_FILES)
+
+    if (${NUM_FILES} STREQUAL "0" AND NOT ARG_ACCEPT_ZERO_FILES)
+        set(${ARG_RESULT} FALSE PARENT_SCOPE)
+        return()
+    endif()
+
     if (${NUM_FILES} STREQUAL ${I})
         set(${ARG_RESULT} TRUE PARENT_SCOPE)
     else()
