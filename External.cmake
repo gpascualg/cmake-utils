@@ -28,7 +28,7 @@ function(ExternalDirectory)
     )
     
     if (NOT ARG_MODULE AND NOT ARG_URL)
-        message(FATAL_ERROR "External module not specified")
+        Log(FATAL_ERROR "External module not specified")
     endif()
 
     if (ARG_MODULE)
@@ -38,7 +38,7 @@ function(ExternalDirectory)
         string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9]|.)+$)" GITHUB_TAG ${ARG_MODULE})
         set(GITHUB_TAG ${CMAKE_MATCH_1})
 
-        message("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
+        Log("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
     elseif (ARG_URL)
         string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9]|[.])+)([.])([a-z]|[A-Z]|_|-|[0-9])+$" GITHUB_REPO ${ARG_URL})
         set(FILENAME ${CMAKE_MATCH_1})
@@ -48,7 +48,7 @@ function(ExternalDirectory)
         string(REGEX MATCH "(-)(([a-z]|[A-Z]|_|-|[0-9]|[.])+)$" TMP ${FILENAME})
         set(GITHUB_TAG ${CMAKE_MATCH_2})
 
-        message("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
+        Log("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
     endif()
 
     set(THIRD_PARTY_PREFIX "${CMAKE_BINARY_DIR}/third_party")
@@ -115,17 +115,17 @@ function(RequireExternal)
     )
 
     if (ARG_INSTALL_NAME)
-        message("RequireExternal with INSTALL_NAME is deprecated, please use PACKAGE_NAME and PACKAGE_TARGET")
+        Log("RequireExternal with INSTALL_NAME is deprecated, please use PACKAGE_NAME and PACKAGE_TARGET")
         set(ARG_PACKAGE_NAME ${ARG_INSTALL_NAME})
         set(ARG_PACKAGE_TARGET ${ARG_INSTALL_NAME})
     endif()
 
     if (NOT ARG_MODULE AND NOT ARG_URL)
-        message(FATAL_ERROR "External module not specified")
+        Log(FATAL_ERROR "External module not specified")
     endif()
 
     if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE)
-        message(WARNING "Either specify an install target with PACKAGE_NAME or INSTALL_INCLUDE, or disable install with SKIP_INSTALL. No reliable runtime checks can be done.")
+        Log(WARNING "Either specify an install target with PACKAGE_NAME or INSTALL_INCLUDE, or disable install with SKIP_INSTALL. No reliable runtime checks can be done.")
     endif()
 
     if (ARG_MODULE)
@@ -289,7 +289,15 @@ function(RequireExternal)
             set_target_properties(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} PROPERTIES EXCLUDE_FROM_ALL TRUE)
         endif()
     else()
-        message(" > Skipping")
+        # TODO(gpascualg): Code duplication...
+        if (NOT ARG_SKIP_INSTALL AND ARG_INSTALL_INCLUDE)
+            AreAllFilesEqual(
+                RESULT ALL_COPIED_FILES_FOUND
+                SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include"
+                DEST "${THIRD_PARTY_PREFIX}/include"
+            )
+        endif()
+        Log(" > Possible duplicate ${GITHUB_USER}/${GITHUB_REPO}")
     endif()
 
     # Manually link!
@@ -382,7 +390,7 @@ function(RequireExternal)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")
     endif()
 
-    # message("\t${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND}")
+    # Log("\t${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} is FOUND? ${${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND}")
 
     if (NOT ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND)
         set(${ARG_TARGET}_UNRESOLVED_EP ${${ARG_TARGET}_UNRESOLVED_EP} ${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG} CACHE INTERNAL "")

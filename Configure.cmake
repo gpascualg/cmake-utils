@@ -78,15 +78,22 @@ function(CreateBuildHeader)
 endfunction()
 
 
-macro(Log msg)
-    if (NOT ${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")
-        message(msg)
+macro(Log optional_level_msg)
+    if (NOT ${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET" OR "${optional_level_msg}" STREQUAL "FATAL_ERROR")
+        set (extra_macro_args ${ARGN})
+        list(LENGTH extra_macro_args num_extra_args)
+        if (${num_extra_args} GREATER 0)
+            list(GET extra_macro_args 0 msg)
+            message(${optional_level_msg} ${msg})
+        else()
+            message(${optional_level_msg})
+        endif()
     endif()
 endmacro()
 
 # Make sure we are in the required version
 if (${CMAKE_VERSION} VERSION_LESS "3.12.0") 
-    message(FATAL_ERROR "Please use CMake 3.12 or greater, you are on ${CMAKE_VERSION}")
+    Log(FATAL_ERROR "Please use CMake 3.12 or greater, you are on ${CMAKE_VERSION}")
 endif()
 
 # Colors for ninja
