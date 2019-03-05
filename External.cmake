@@ -431,7 +431,7 @@ function(ResolveExternal)
         set(${ARG_TARGET}_IS_RESOLVED FALSE PARENT_SCOPE)
 
         MATH(EXPR NEXT_REBUILD "${REBUILD_COUNT} + 1")
-        if ("${REBUILD_COUNT}" MATCHES "0")
+        if ("${REBUILD_COUNT}" STREQUAL "0")
             add_custom_target(Rebuild ALL
                 ${CMAKE_COMMAND} ${CMAKE_SOURCE_DIR}
                 COMMAND ${CMAKE_COMMAND} --build .
