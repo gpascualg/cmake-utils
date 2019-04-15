@@ -114,7 +114,7 @@ endfunction()
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;ALWAYS_BUILD"
+        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;CHECK_INCLUDE_INSTALLED;ALWAYS_BUILD"
         "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;OVERRIDE_INSTALL_INCLUDE_FOLDER;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
@@ -178,7 +178,7 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_INSTALL)
             # TODO: Auto-scan directory for include/ if not building
-            if (ARG_INSTALL_INCLUDE)
+            if (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED)
                 if (NOT ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER)
                     set(ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER "include")
                 endif()
@@ -190,13 +190,15 @@ function(RequireExternal)
                 )
 
                 # Some (all) are missing, add them
-                if (NOT ALL_COPIED_FILES_FOUND)
-                    set(INSTALL_COMMAND "${CMAKE_COMMAND}")
-                    list(APPEND INSTALL_COMMAND -E copy_directory)
-                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
-                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
-                else()
-                    set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
+                if (ARG_INSTALL_INCLUDE)
+                    if (NOT ALL_COPIED_FILES_FOUND)
+                        set(INSTALL_COMMAND "${CMAKE_COMMAND}")
+                        list(APPEND INSTALL_COMMAND -E copy_directory)
+                        list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
+                        list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
+                    else()
+                        set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
+                    endif()
                 endif()
             else()
                 if (ARG_INSTALL_COMMAND)
@@ -300,7 +302,7 @@ function(RequireExternal)
         endif()
     else()
         # TODO(gpascualg): Code duplication...
-        if (NOT ARG_SKIP_INSTALL AND ARG_INSTALL_INCLUDE)
+        if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED))
             AreAllFilesEqual(
                 RESULT ALL_COPIED_FILES_FOUND
                 SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER}"
