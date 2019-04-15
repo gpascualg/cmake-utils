@@ -72,12 +72,12 @@ function(AreAllFilesEqual)
         string(LENGTH ${ARG_SOURCE}/ base_path_len)
         string(SUBSTRING ${filepath} ${base_path_len} -1 filename)
 
-        if (EXISTS ${ARG_DEST}/${filename})
+        if (EXISTS ${ARG_DEST}${filename})
             if (NOT ARG_NO_HASHING)
                 # SHA256 seems like an overkill for something like a checksum
                 # MD5 collition rate is still low (although weak, but it doesn't matter here)
                 file(MD5 ${filepath} ORIGINAL_CHECKSUM)
-                file(MD5 ${ARG_DEST}/${filename} COPY_CHECKSUM)
+                file(MD5 ${ARG_DEST}${filename} COPY_CHECKSUM)
 
                 if (NOT ${ORIGINAL_CHECKSUM} STREQUAL ${COPY_CHECKSUM})
                     set(${ARG_RESULT} FALSE PARENT_SCOPE)
@@ -115,7 +115,7 @@ function(RequireExternal)
     cmake_parse_arguments(
         ARG
         "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;CHECK_INCLUDE_INSTALLED;ALWAYS_BUILD"
-        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;OVERRIDE_INSTALL_INCLUDE_FOLDER;BUILD_TARGET"
+        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER;OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -179,14 +179,18 @@ function(RequireExternal)
         if (NOT ARG_SKIP_INSTALL)
             # TODO: Auto-scan directory for include/ if not building
             if (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED)
-                if (NOT ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER)
-                    set(ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER "include")
+                if (NOT ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER)
+                    set(ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER "include")
+                endif()
+
+                if (NOT ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER)
+                    set(ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER "")
                 endif()
 
                 AreAllFilesEqual(
                     RESULT ALL_COPIED_FILES_FOUND
-                    SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER}"
-                    DEST "${THIRD_PARTY_PREFIX}/include"
+                    SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER}"
+                    DEST "${THIRD_PARTY_PREFIX}/include/${ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER}"
                 )
 
                 # Some (all) are missing, add them
@@ -305,8 +309,8 @@ function(RequireExternal)
         if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED))
             AreAllFilesEqual(
                 RESULT ALL_COPIED_FILES_FOUND
-                SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_INCLUDE_FOLDER}"
-                DEST "${THIRD_PARTY_PREFIX}/include"
+                SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER}"
+                DEST "${THIRD_PARTY_PREFIX}/include/${ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER}"
             )
         endif()
         Log(" > Possible duplicate ${GITHUB_USER}/${GITHUB_REPO}")
