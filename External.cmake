@@ -154,8 +154,17 @@ function(RequireExternal)
         Log("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
     endif()
 
+    # Some defaults
     if (NOT ARG_INC_PATH)
         set(ARG_INC_PATH "include")
+    endif()
+
+    if (NOT ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER)
+        set(ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER "include")
+    endif()
+
+    if (NOT ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER)
+        set(ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER "")
     endif()
 
     # Find where should we be looking to
@@ -179,14 +188,6 @@ function(RequireExternal)
         if (NOT ARG_SKIP_INSTALL)
             # TODO: Auto-scan directory for include/ if not building
             if (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED)
-                if (NOT ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER)
-                    set(ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER "include")
-                endif()
-
-                if (NOT ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER)
-                    set(ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER "")
-                endif()
-
                 AreAllFilesEqual(
                     RESULT ALL_COPIED_FILES_FOUND
                     SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER}"
