@@ -108,17 +108,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 # -[ Verbosity
 if (NOT CMAKE_UTILS_VERBOSE_LEVEL)
     set(CMAKE_UTILS_VERBOSE_LEVEL "QUIET")
-    set(CMAKE_INSTALL_MESSAGE LAZY)
+else()
+    string(TOUPPER ${CMAKE_UTILS_VERBOSE_LEVEL} CMAKE_UTILS_VERBOSE_LEVEL)
 endif()
 
 # -[ NO-OP for External projects
 # TODO(gpascualg): Find better no-ops
 if (${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")
+    set(CMAKE_INSTALL_MESSAGE LAZY cache internal "")
     if (UNIX)
         set(CMAKE_UTILS_NO_OP_COMMAND "printf" " \r")
     else()
         set(CMAKE_UTILS_NO_OP_COMMAND "echo")
     endif()
 else()
+    set(CMAKE_INSTALL_MESSAGE ALWAYS cache internal "")
     set(CMAKE_UTILS_NO_OP_COMMAND "echo" "  > Nothing to do")
 endif()
