@@ -217,7 +217,7 @@ function(RequireExternal)
         endif()
 
         if (NOT ARG_SKIP_BUILD)
-            set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" ".")
+            set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" "." "--parallel" "${CMAKE_UTILS_PARALLEL_JOBS}")
             if (ARG_BUILD_TARGET)
                 list(APPEND BUILD_COMMAND "--target")
                 list(APPEND BUILD_COMMAND ${ARG_BUILD_TARGET})

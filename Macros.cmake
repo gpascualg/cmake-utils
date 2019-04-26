@@ -14,6 +14,22 @@ function(CreateTarget)
     endif()
 endfunction()
 
+function(IsTarget)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;VARIABLE"
+        ""
+        ${ARGN}
+    )
+
+    if (NOT ";${ALL_TARGETS};" MATCHES ";${ARG_TARGET};")
+        set(${ARG_VARIABLE} FALSE PARENT_SCOPE)
+    else()
+        set(${ARG_VARIABLE} TRUE PARENT_SCOPE)
+    endif()
+endfunction()
+
 function(AddDependency)
     cmake_parse_arguments(
         ARG
@@ -23,7 +39,8 @@ function(AddDependency)
         ${ARGN}
     )
 
-    if (NOT TARGET ${ARG_DEPENDENCY})
+    IsTarget(TARGET ${ARG_DEPENDENCY} VARIABLE CHECK_CUSTOM_TARGET)
+    if (NOT TARGET ${ARG_DEPENDENCY} AND NOT CHECK_CUSTOM_TARGET)
         message(FATAL_ERROR "AddDependency should be used only with other targets, use AddPackage or AddLibrary")
     endif()
 
@@ -32,7 +49,7 @@ function(AddDependency)
     endif()
 
     # This is a custom target, no need to do manual processing
-    if (";${ALL_TARGETS};" MATCHES ";${ARG_DEPENDENCY};")
+    if (CHECK_CUSTOM_TARGET)
         set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
 
         # TODO: Only add it if it was declared private in first instance
