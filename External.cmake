@@ -130,7 +130,7 @@ function(RequireExternal)
         Log(FATAL_ERROR "External module not specified")
     endif()
 
-    if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE)
+    if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE AND NOT ARG_CHECK_INCLUDE_INSTALLED)
         Log(WARNING "Either specify an install target with PACKAGE_NAME or INSTALL_INCLUDE, or disable install with SKIP_INSTALL. No reliable runtime checks can be done.")
     endif()
 
