@@ -234,7 +234,7 @@ function(AddLibrary)
 
     # Assume that if more than one name is given, the user knows what he is doing
     list(LENGTH ARG_LIBRARY NUM_NAMES)
-    set(IS_SYS_LIB FALSE)
+    set(IS_MULTI_FIND FALSE)
     if ("${NUM_NAMES}" STREQUAL "1")
         list(GET ARG_LIBRARY 0 ARG_LIBRARY)
 
@@ -259,6 +259,7 @@ function(AddLibrary)
             set(LOOKUP_NAME ${ARG_LIBRARY})
         endif()
     else()
+        set(IS_MULTI_FIND TRUE)
         set(LOOKUP_NAME ${ARG_LIBRARY})
     endif()
 
@@ -279,7 +280,7 @@ function(AddLibrary)
         endif()
 
         # TODO: Should we really assume GCC libs are safe?
-        if (NOT OUTPUT_LIB)
+        if (NOT OUTPUT_LIB AND NOT IS_MULTI_FIND)
             string(SUBSTRING ${LOOKUP_NAME} 0 3 GCC_START)
             if (${GCC_START} STREQUAL "gcc")
                 unset(OUTPUT_LIB CACHE)
