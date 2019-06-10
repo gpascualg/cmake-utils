@@ -115,7 +115,7 @@ endif()
 # TODO(gpascualg): Find better no-ops
 if (${CMAKE_UTILS_VERBOSE_LEVEL} STREQUAL "QUIET")
     if (UNIX)
-        set(CMAKE_UTILS_NO_OP_COMMAND "printf" " \r")
+        set(CMAKE_UTILS_NO_OP_COMMAND "true")
     else()
         set(CMAKE_UTILS_NO_OP_COMMAND "echo")
     endif()
