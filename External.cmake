@@ -72,12 +72,12 @@ function(AreAllFilesEqual)
         string(LENGTH ${ARG_SOURCE}/ base_path_len)
         string(SUBSTRING ${filepath} ${base_path_len} -1 filename)
 
-        if (EXISTS ${ARG_DEST}/${filename})
+        if (EXISTS ${ARG_DEST}${filename})
             if (NOT ARG_NO_HASHING)
                 # SHA256 seems like an overkill for something like a checksum
                 # MD5 collition rate is still low (although weak, but it doesn't matter here)
                 file(MD5 ${filepath} ORIGINAL_CHECKSUM)
-                file(MD5 ${ARG_DEST}/${filename} COPY_CHECKSUM)
+                file(MD5 ${ARG_DEST}${filename} COPY_CHECKSUM)
 
                 if (NOT ${ORIGINAL_CHECKSUM} STREQUAL ${COPY_CHECKSUM})
                     set(${ARG_RESULT} FALSE PARENT_SCOPE)
@@ -114,8 +114,8 @@ endfunction()
 function(RequireExternal)
     cmake_parse_arguments(
         ARG
-        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;ALWAYS_BUILD"
-        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;BUILD_TARGET"
+        "EXCLUDE;SKIP_BUILD;SKIP_CONFIGURE;SKIP_INSTALL;KEEP_UPDATED;ENSURE_ORDER;INSTALL_INCLUDE;CHECK_INCLUDE_INSTALLED;ALWAYS_BUILD"
+        "TARGET;URL;MODULE;INC_PATH;INSTALL_NAME;PACKAGE_NAME;PACKAGE_TARGET;LINK_SUBDIR;LINK_NAME;OVERRIDE_CONFIGURE_FOLDER;OVERRIDE_GENERATOR;INSTALL_COMMAND;OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER;OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER;BUILD_TARGET"
         "CONFIGURE_ARGUMENTS;CONFIGURE_STEPS"
         ${ARGN}
     )
@@ -130,7 +130,7 @@ function(RequireExternal)
         Log(FATAL_ERROR "External module not specified")
     endif()
 
-    if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE)
+    if (NOT ARG_SKIP_INSTALL AND NOT ARG_PACKAGE_NAME AND NOT ARG_INSTALL_INCLUDE AND NOT ARG_CHECK_INCLUDE_INSTALLED)
         Log(WARNING "Either specify an install target with PACKAGE_NAME or INSTALL_INCLUDE, or disable install with SKIP_INSTALL. No reliable runtime checks can be done.")
     endif()
 
@@ -154,8 +154,17 @@ function(RequireExternal)
         Log("Requires ${GITHUB_REPO} version ${GITHUB_TAG}")
     endif()
 
+    # Some defaults
     if (NOT ARG_INC_PATH)
         set(ARG_INC_PATH "include")
+    endif()
+
+    if (NOT ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER)
+        set(ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER "include")
+    endif()
+
+    if (NOT ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER)
+        set(ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER "")
     endif()
 
     # Find where should we be looking to
@@ -178,21 +187,23 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_INSTALL)
             # TODO: Auto-scan directory for include/ if not building
-            if (ARG_INSTALL_INCLUDE)
+            if (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED)
                 AreAllFilesEqual(
                     RESULT ALL_COPIED_FILES_FOUND
-                    SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include"
-                    DEST "${THIRD_PARTY_PREFIX}/include"
+                    SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER}"
+                    DEST "${THIRD_PARTY_PREFIX}/include/${ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER}"
                 )
 
                 # Some (all) are missing, add them
-                if (NOT ALL_COPIED_FILES_FOUND)
-                    set(INSTALL_COMMAND "${CMAKE_COMMAND}")
-                    list(APPEND INSTALL_COMMAND -E copy_directory)
-                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
-                    list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
-                else()
-                    set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
+                if (ARG_INSTALL_INCLUDE)
+                    if (NOT ALL_COPIED_FILES_FOUND)
+                        set(INSTALL_COMMAND "${CMAKE_COMMAND}")
+                        list(APPEND INSTALL_COMMAND -E copy_directory)
+                        list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include)
+                        list(APPEND INSTALL_COMMAND ${THIRD_PARTY_PREFIX}/include)
+                    else()
+                        set(INSTALL_COMMAND ${CMAKE_UTILS_NO_OP_COMMAND})
+                    endif()
                 endif()
             else()
                 if (ARG_INSTALL_COMMAND)
@@ -206,7 +217,7 @@ function(RequireExternal)
         endif()
 
         if (NOT ARG_SKIP_BUILD)
-            set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" ".")
+            set(BUILD_COMMAND "${CMAKE_COMMAND}" "--build" "." "--parallel" "${CMAKE_UTILS_PARALLEL_JOBS}")
             if (ARG_BUILD_TARGET)
                 list(APPEND BUILD_COMMAND "--target")
                 list(APPEND BUILD_COMMAND ${ARG_BUILD_TARGET})
@@ -296,11 +307,11 @@ function(RequireExternal)
         endif()
     else()
         # TODO(gpascualg): Code duplication...
-        if (NOT ARG_SKIP_INSTALL AND ARG_INSTALL_INCLUDE)
+        if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED))
             AreAllFilesEqual(
                 RESULT ALL_COPIED_FILES_FOUND
-                SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/include"
-                DEST "${THIRD_PARTY_PREFIX}/include"
+                SOURCE "${THIRD_PARTY_PREFIX}/src/${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_INSTALL_SOURCE_INCLUDE_FOLDER}"
+                DEST "${THIRD_PARTY_PREFIX}/include/${ARG_OVERRIDE_INSTALL_DEST_INCLUDE_FOLDER}"
             )
         endif()
         Log(" > Possible duplicate ${GITHUB_USER}/${GITHUB_REPO}")
@@ -364,8 +375,8 @@ function(RequireExternal)
     if (NOT ARG_SKIP_BUILD OR NOT ARG_SKIP_INSTALL)
         set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND FALSE CACHE INTERNAL "")
 
-        if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_PACKAGE_NAME))
-            if (ARG_INSTALL_INCLUDE)
+        if (NOT ARG_SKIP_INSTALL AND (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED OR ARG_PACKAGE_NAME))
+            if (ARG_INSTALL_INCLUDE OR ARG_CHECK_INCLUDE_INSTALLED)
                 # The variable should already exist from before                
                 if (ALL_COPIED_FILES_FOUND)
                     set(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}_FOUND TRUE CACHE INTERNAL "")

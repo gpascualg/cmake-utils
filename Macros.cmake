@@ -14,6 +14,22 @@ function(CreateTarget)
     endif()
 endfunction()
 
+function(IsTarget)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET;VARIABLE"
+        ""
+        ${ARGN}
+    )
+
+    if (NOT ";${ALL_TARGETS};" MATCHES ";${ARG_TARGET};")
+        set(${ARG_VARIABLE} FALSE PARENT_SCOPE)
+    else()
+        set(${ARG_VARIABLE} TRUE PARENT_SCOPE)
+    endif()
+endfunction()
+
 function(AddDependency)
     cmake_parse_arguments(
         ARG
@@ -23,7 +39,8 @@ function(AddDependency)
         ${ARGN}
     )
 
-    if (NOT TARGET ${ARG_DEPENDENCY})
+    IsTarget(TARGET ${ARG_DEPENDENCY} VARIABLE CHECK_CUSTOM_TARGET)
+    if (NOT TARGET ${ARG_DEPENDENCY} AND NOT CHECK_CUSTOM_TARGET)
         message(FATAL_ERROR "AddDependency should be used only with other targets, use AddPackage or AddLibrary")
     endif()
 
@@ -32,7 +49,7 @@ function(AddDependency)
     endif()
 
     # This is a custom target, no need to do manual processing
-    if (";${ALL_TARGETS};" MATCHES ";${ARG_DEPENDENCY};")
+    if (CHECK_CUSTOM_TARGET)
         set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
 
         # TODO: Only add it if it was declared private in first instance
@@ -201,13 +218,13 @@ function(AddLibrary)
     cmake_parse_arguments(
         ARG
         ""
-        "TARGET;LIBRARY;PLATFORM;MODE"
-        "HINTS"
+        "TARGET;PLATFORM;MODE"
+        "LIBRARY;HINTS"
         ${ARGN}
     )
 
     if (ARG_PLATFORM AND NOT ${ARG_PLATFORM})
-        message("${ARG_TARGET} not linking to ${ARG_LIBRARY} due to platform mismatch (${ARG_PLATFORM})")
+        Log("${ARG_TARGET} not linking to ${ARG_LIBRARY} due to platform mismatch (${ARG_PLATFORM})")
         return()
     endif()
 
@@ -215,46 +232,55 @@ function(AddLibrary)
         set(ARG_MODE "AUTO")
     endif()
 
-    # Check if it is linked via "-[l]<name>"
-    string(SUBSTRING ${ARG_LIBRARY} 0 1 LIBRARY_INITIAL)
-    string(COMPARE EQUAL ${LIBRARY_INITIAL} "-" IS_SYS_LIB)
+    # Assume that if more than one name is given, the user knows what he is doing
+    list(LENGTH ARG_LIBRARY NUM_NAMES)
+    set(IS_MULTI_FIND FALSE)
+    if ("${NUM_NAMES}" STREQUAL "1")
+        list(GET ARG_LIBRARY 0 ARG_LIBRARY)
 
-    # Libraries linked via "-[l]<name>"
-    if (IS_SYS_LIB)
-        string(SUBSTRING ${ARG_LIBRARY} 1 -1 LOOKUP_NAME)
-        string(SUBSTRING ${LOOKUP_NAME} 0 1 LIBRARY_INITIAL)
-        string(COMPARE EQUAL ${LIBRARY_INITIAL} "l" USES_LIB_NAMESPACE)
+        # Check if it is linked via "-[l]<name>"
+        string(SUBSTRING ${ARG_LIBRARY} 0 1 LIBRARY_INITIAL)
+        string(COMPARE EQUAL ${LIBRARY_INITIAL} "-" IS_SYS_LIB)
 
-        # Libraries linked via "-l<name>"
-        if (USES_LIB_NAMESPACE)
-            string(SUBSTRING ${LOOKUP_NAME} 1 -1 LOOKUP_NAME)
+        # Libraries linked via "-[l]<name>"
+        if (IS_SYS_LIB)
+            string(SUBSTRING ${ARG_LIBRARY} 1 -1 LOOKUP_NAME)
+            string(SUBSTRING ${LOOKUP_NAME} 0 1 LIBRARY_INITIAL)
+            string(COMPARE EQUAL ${LIBRARY_INITIAL} "l" USES_LIB_NAMESPACE)
+
+            # Libraries linked via "-l<name>"
+            if (USES_LIB_NAMESPACE)
+                string(SUBSTRING ${LOOKUP_NAME} 1 -1 LOOKUP_NAME)
+            endif()
+        elseif (EXISTS ${ARG_LIBRARY})
+            set(OUTPUT_LIB ${ARG_LIBRARY})
+            set(SKIP_FIND TRUE)
+        else()
+            set(LOOKUP_NAME ${ARG_LIBRARY})
         endif()
-
-    elseif (EXISTS ${ARG_LIBRARY})
-        set(OUTPUT_LIB ${ARG_LIBRARY})
-        set(SKIP_FIND TRUE)
     else()
+        set(IS_MULTI_FIND TRUE)
         set(LOOKUP_NAME ${ARG_LIBRARY})
     endif()
-    
+
     # Unless its already found
     if (NOT SKIP_FIND)
         if (NOT ARG_HINTS)
             ExternalInstallDirectory(VARIABLE EXTERNAL_DIRECTORY)
-            find_library(OUTPUT_LIB ${LOOKUP_NAME} PATHS ${EXTERNAL_DIRECTORY}/lib NO_DEFAULT_PATH)
+            find_library(OUTPUT_LIB NAMES ${LOOKUP_NAME} PATHS ${EXTERNAL_DIRECTORY}/lib NO_DEFAULT_PATH)
         endif()
 
         # If not found, try global
         if (NOT OUTPUT_LIB)
             if (ARG_HINTS)
-                find_library(OUTPUT_LIB ${LOOKUP_NAME} HINTS ${ARG_HINTS})
+                find_library(OUTPUT_LIB NAMES ${LOOKUP_NAME} HINTS ${ARG_HINTS})
             else()
-                find_library(OUTPUT_LIB ${LOOKUP_NAME})
+                find_library(OUTPUT_LIB NAMES ${LOOKUP_NAME})
             endif()
         endif()
 
         # TODO: Should we really assume GCC libs are safe?
-        if (NOT OUTPUT_LIB)
+        if (NOT OUTPUT_LIB AND NOT IS_MULTI_FIND)
             string(SUBSTRING ${LOOKUP_NAME} 0 3 GCC_START)
             if (${GCC_START} STREQUAL "gcc")
                 unset(OUTPUT_LIB CACHE)
