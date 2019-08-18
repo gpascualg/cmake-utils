@@ -178,62 +178,6 @@ set(CXX_FILESYSTEM_NAMESPACE ${_fs_namespace} CACHE STRING "The C++ namespace th
 
 set(_found FALSE)
 
-macro(check_cxx17_source_compiles SOURCE VAR)
-    set(MACRO_CHECK_FUNCTION_DEFINITIONS
-      "-D${VAR} ${CMAKE_REQUIRED_FLAGS}")
-    if(CMAKE_REQUIRED_LINK_OPTIONS)
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_LINK_OPTIONS
-        LINK_OPTIONS ${CMAKE_REQUIRED_LINK_OPTIONS})
-    else()
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_LINK_OPTIONS)
-    endif()
-    if(CMAKE_REQUIRED_LIBRARIES)
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_LIBRARIES
-        LINK_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
-    else()
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_LIBRARIES)
-    endif()
-    if(CMAKE_REQUIRED_INCLUDES)
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_INCLUDES
-        "-DINCLUDE_DIRECTORIES:STRING=${CMAKE_REQUIRED_INCLUDES}")
-    else()
-      set(CHECK_CXX_SOURCE_COMPILES_ADD_INCLUDES)
-    endif()
-
-    file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.cxx"
-      "${SOURCE}\n")
-
-    try_compile(${VAR}
-        ${CMAKE_BINARY_DIR}
-        ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.cxx
-        CXX_STANDARD 17
-        COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
-        ${CHECK_CXX_SOURCE_COMPILES_ADD_LINK_OPTIONS}
-        ${CHECK_CXX_SOURCE_COMPILES_ADD_LIBRARIES}
-        CMAKE_FLAGS -DCOMPILE_DEFINITIONS:STRING=${MACRO_CHECK_FUNCTION_DEFINITIONS}
-        "${CHECK_CXX_SOURCE_COMPILES_ADD_INCLUDES}"
-        OUTPUT_VARIABLE OUTPUT)
-
-    if(${VAR})
-      set(${VAR} 1 CACHE INTERNAL "Test ${VAR}")
-      if(NOT CMAKE_REQUIRED_QUIET)
-        message(STATUS "Performing Test ${VAR} - Success")
-      endif()
-      file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
-        "Performing C++ SOURCE FILE Test ${VAR} succeeded with the following output:\n"
-        "${OUTPUT}\n"
-        "Source file was:\n${SOURCE}\n")
-    else()
-      if(NOT CMAKE_REQUIRED_QUIET)
-        message(STATUS "Performing Test ${VAR} - Failed")
-      endif()
-      set(${VAR} "" CACHE INTERNAL "Test ${VAR}")
-      file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
-        "Performing C++ SOURCE FILE Test ${VAR} failed with the following output:\n"
-        "${OUTPUT}\n"
-        "Source file was:\n${SOURCE}\n")
-    endif()
-endmacro()
 
 if(CXX_FILESYSTEM_HAVE_FS)
     # We have some filesystem library available. Do link checks
