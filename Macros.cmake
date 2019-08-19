@@ -53,7 +53,7 @@ function(AddDependency)
         set(${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES ${${ARG_TARGET}_${ARG_MODE}_DEPENDENCIES} ${ARG_DEPENDENCY} CACHE INTERNAL "")
 
         # TODO: Only add it if it was declared private in first instance
-        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${${ARG_DEPENDENCY}_INCLUDE_DIRECTORIES} CACHE INTERNAL "")
+        set(${ARG_TARGET}_SYSTEM_INCLUDE_DIRECTORIES ${${ARG_TARGET}_SYSTEM_INCLUDE_DIRECTORIES} ${${ARG_DEPENDENCY}_SYSTEM_INCLUDE_DIRECTORIES} CACHE INTERNAL "")
 
         return()
     endif()
@@ -119,10 +119,14 @@ function(AddPackage)
     endif()
 
     # Make sure we are in the correct prefix
-    ExternalInstallDirectory(VARIABLE "EXTERNAL_DIRECTORY")
+    ExternalInstallDirectory(VARIABLE EXTERNAL_DIRECTORY)
     if (NOT ";${CMAKE_PREFIX_PATH};" MATCHES ";${EXTERNAL_DIRECTORY};")
         list(APPEND CMAKE_PREFIX_PATH ${EXTERNAL_DIRECTORY})
     endif()
+
+    unset (${ARG_PACKAGE}_FOUND CACHE)
+    unset (${ARG_PACKAGE}_DIR CACHE)
+    unset (${ARG_PACKAGE}_LIBRARIES CACHE)
 
     if (ARG_RUN_DRY)
         if (ARG_HINTS)
@@ -370,15 +374,20 @@ endfunction()
 function(AddToIncludes)
     cmake_parse_arguments(
         ARG
-        ""
+        "SYSTEM"
         "TARGET;INC_PATH;"
         "INCLUDES"
         ${ARGN}
     )
 
+    set(SYSTEM "")
+    if (ARG_SYSTEM)
+        set(SYSTEM "_SYSTEM")
+    endif()
+
     # Add include dirs
     foreach (include ${ARG_INC_PATH} ${ARG_INCLUDES})
-        set(${ARG_TARGET}_INCLUDE_DIRECTORIES ${${ARG_TARGET}_INCLUDE_DIRECTORIES} ${include} CACHE INTERNAL "")
+        set(${ARG_TARGET}${SYSTEM}_INCLUDE_DIRECTORIES ${${ARG_TARGET}${SYSTEM}_INCLUDE_DIRECTORIES} ${include} CACHE INTERNAL "")
     endforeach()
 endfunction()
 
@@ -460,22 +469,32 @@ function(BuildNow)
     endforeach()
 
     # Include installed dependencies
-    ExternalInstallDirectory(VARIABLE "EXTERNAL_DEPENDENCIES")
+    ExternalInstallDirectory(VARIABLE EXTERNAL_DEPENDENCIES)
     AddToIncludes(
         TARGET ${ARG_TARGET}
         INC_PATH ${EXTERNAL_DEPENDENCIES}/include
     )
 
+    list(REMOVE_DUPLICATES ${ARG_TARGET}_INCLUDE_DIRECTORIES)
+
     foreach (dir ${${ARG_TARGET}_INCLUDE_DIRECTORIES})
         string(FIND ${dir} ${PROJECT_SOURCE_DIR} INTERNAL_INCLUDE)
         string(COMPARE EQUAL "${INTERNAL_INCLUDE}" "-1" IS_EXTERNAL)
 
-        if (IS_EXTERNAL)
-            target_include_directories(${ARG_TARGET} PUBLIC ${dir})
+        string(FIND ${dir} ${EXTERNAL_DEPENDENCIES} THIRD_PARTY_INCLUDE)
+        string(COMPARE EQUAL "${THIRD_PARTY_INCLUDE}" "0" IS_THIRD_PARTY)
+
+        if (IS_EXTERNAL OR IS_THIRD_PARTY)
+            target_include_directories(${ARG_TARGET} SYSTEM PUBLIC ${dir})
         else()
-            target_include_directories(${ARG_TARGET} PRIVATE ${dir})
+            # TODO(gpascualg): Should this be private? configurable?
+            target_include_directories(${ARG_TARGET} PUBLIC ${dir})
         endif()
     endforeach()
+    
+    foreach (dir ${${ARG_TARGET}_SYSTEM_INCLUDE_DIRECTORIES})
+        target_include_directories(${ARG_TARGET} SYSTEM PUBLIC ${dir})
+    endforeach()    
 
     # Iterate in reverse order to avoid messing dependencies
     foreach(mode "AUTO" "DEBUG" "OPTIMIZED")
@@ -591,10 +610,60 @@ function(WarningAll)
         ${ARGN}
     )
 
+    get_target_property(CURRENT_FLAGS ${ARG_TARGET} COMPILE_FLAGS)
+    if (NOT CURRENT_FLAGS)
+        set(CURRENT_FLAGS "")
+    endif()
+
     if(MSVC)
-        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "/W4")
+        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "${CURRENT_FLAGS} /W4")
     elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "-Wall -Wno-long-long -pedantic")
+        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "${CURRENT_FLAGS} -Wall -Wno-long-long -pedantic")
+    endif()
+endfunction()
+
+function(Paranoid)
+    cmake_parse_arguments(
+        ARG
+        ""
+        "TARGET"
+        ""
+        ${ARGN}
+    )
+
+    if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+        get_target_property(CURRENT_FLAGS ${ARG_TARGET} COMPILE_FLAGS)
+        if (NOT CURRENT_FLAGS)
+            set(CURRENT_FLAGS "")
+        endif()
+
+        set(EXTRA_FLAGS "
+            -Wextra 
+            -Wshadow
+            -Wnon-virtual-dtor
+            -Wold-style-cast
+            -Wcast-align
+            -Wunused
+            -Woverloaded-virtual
+            -Wpedantic
+            -Wconversion
+            -Wsign-conversion
+            -Wnull-dereference
+            -Wdouble-promotion
+            -Wformat=2
+            -Wduplicated-cond
+            -Wduplicated-branches
+            -Wlogical-op
+            -Wuseless-cast
+        ")
+
+        string(REPLACE "\n" " " EXTRA_FLAGS ${EXTRA_FLAGS})
+
+        if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+            set(EXTRA_FLAGS "${EXTRA_FLAGS} -Wlifetime")
+        endif()
+
+        set_target_properties(${ARG_TARGET} PROPERTIES COMPILE_FLAGS "${CURRENT_FLAGS} ${EXTRA_FLAGS}")
     endif()
 endfunction()
 
