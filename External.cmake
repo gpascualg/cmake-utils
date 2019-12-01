@@ -139,7 +139,8 @@ function(RequireExternal)
         string(REGEX MATCH "/(([a-z]|[A-Z]|_|-|[0-9])+[^:])" GITHUB_REPO ${ARG_MODULE})
         set(GITHUB_REPO ${CMAKE_MATCH_1})
         string(REGEX MATCH ":(([a-z]|[A-Z]|_|-|[0-9]|.)+$)" GITHUB_TAG ${ARG_MODULE})
-        set(GITHUB_TAG ${CMAKE_MATCH_1})
+        set(GITHUB_TAG_UNSAFE ${CMAKE_MATCH_1})
+        string(REPLACE "/" "_" GITHUB_TAG "${GITHUB_TAG_UNSAFE}")
 
         Log("Requires ${GITHUB_USER}/${GITHUB_REPO} at branch ${GITHUB_TAG}")
     elseif (ARG_URL)
@@ -243,6 +244,8 @@ function(RequireExternal)
             list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+            list(APPEND CONFIG_COMMAND "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+            list(APPEND CONFIG_COMMAND "-DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_MESSAGE=${CMAKE_INSTALL_MESSAGE}")
             list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
             list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
@@ -253,7 +256,7 @@ function(RequireExternal)
         if (ARG_MODULE)
             ExternalProject_Add(${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}
                 GIT_REPOSITORY https://github.com/${GITHUB_USER}/${GITHUB_REPO}
-                GIT_TAG ${GITHUB_TAG}
+                GIT_TAG ${GITHUB_TAG_UNSAFE}
                 PREFIX ${THIRD_PARTY_PREFIX}
                 CONFIGURE_COMMAND ${CONFIG_COMMAND}
                 BUILD_COMMAND ${BUILD_COMMAND}
