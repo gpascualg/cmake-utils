@@ -326,7 +326,7 @@ function(AddToSources)
         ARG
         "INCLUDE;NO_DEDUCE_FOLDER"
         "TARGET;SRC_PATH;INC_PATH;FOLDER_NAME"
-        "GLOB_SEARCH;SOURCES"
+        "GLOB_SEARCH;SOURCES;FILES"
         ${ARGN}
     )
 
@@ -354,6 +354,21 @@ function(AddToSources)
 
             if (NOT ARG_NO_DEDUCE_FOLDER)
                 get_filename_component(FOLDER_NAME ${srcpath} NAME)
+                
+                set(${ARG_TARGET}_FOLDERS ${${ARG_TARGET}_FOLDERS} ${FOLDER_NAME} CACHE INTERNAL "")
+                set(${ARG_TARGET}_FOLDERS_${FOLDER_NAME} ${TMP_SOURCES_INCLUDE} CACHE INTERNAL "")
+
+                unset(FOLDER_NAME)
+            endif()
+        endforeach()
+    endif()
+
+    if (ARG_FILES)
+        foreach (srcfile ${ARG_FILES})
+            set(${ARG_TARGET}_SOURCES ${${ARG_TARGET}_SOURCES} ${srcfile} CACHE INTERNAL "")
+
+            if (NOT ARG_NO_DEDUCE_FOLDER)
+                get_filename_component(FOLDER_NAME ${srcfile} NAME)
                 
                 set(${ARG_TARGET}_FOLDERS ${${ARG_TARGET}_FOLDERS} ${FOLDER_NAME} CACHE INTERNAL "")
                 set(${ARG_TARGET}_FOLDERS_${FOLDER_NAME} ${TMP_SOURCES_INCLUDE} CACHE INTERNAL "")
