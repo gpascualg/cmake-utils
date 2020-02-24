@@ -236,9 +236,6 @@ function(RequireExternal)
 
         if (NOT ARG_SKIP_CONFIGURE)
             set(CONFIG_COMMAND "${CMAKE_COMMAND}")
-            if (ARG_CONFIGURE_ARGUMENTS)
-                list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
-            endif()
             list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_PREFIX=${THIRD_PARTY_PREFIX}")
             list(APPEND CONFIG_COMMAND "-DOVERRIDE_THIRD_PARTY=${THIRD_PARTY_PREFIX}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
@@ -247,6 +244,10 @@ function(RequireExternal)
             list(APPEND CONFIG_COMMAND "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}")
             list(APPEND CONFIG_COMMAND "-DCMAKE_INSTALL_MESSAGE=${CMAKE_INSTALL_MESSAGE}")
+            list(APPEND CONFIG_COMMAND "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}")
+            if (ARG_CONFIGURE_ARGUMENTS)
+                list(APPEND CONFIG_COMMAND ${ARG_CONFIGURE_ARGUMENTS})
+            endif()
             list(APPEND CONFIG_COMMAND -G ${ARG_OVERRIDE_GENERATOR})
             list(APPEND CONFIG_COMMAND "../${GITHUB_USER}_${GITHUB_REPO}_${GITHUB_TAG}/${ARG_OVERRIDE_CONFIGURE_FOLDER}")
         else()
@@ -262,6 +263,7 @@ function(RequireExternal)
                 BUILD_COMMAND ${BUILD_COMMAND}
                 INSTALL_COMMAND ${INSTALL_COMMAND}
                 UPDATE_COMMAND ${UPDATE_COMMAND} 
+                INSTALL_DIR ${THIRD_PARTY_PREFIX}
                 TEST_COMMAND ""
             )
         elseif(ARG_URL)
@@ -272,6 +274,7 @@ function(RequireExternal)
                 BUILD_COMMAND ${BUILD_COMMAND}
                 INSTALL_COMMAND ${INSTALL_COMMAND}
                 UPDATE_COMMAND ${UPDATE_COMMAND} 
+                INSTALL_DIR ${THIRD_PARTY_PREFIX}
                 TEST_COMMAND ""
             )
         endif()

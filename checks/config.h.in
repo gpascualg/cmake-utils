@@ -4,3 +4,4 @@
 #cmakedefine HAS_NCURSES_H
 
 #cmakedefine HAS_EXPERIMENTAL_SOURCE_LOCATION
+#cmakedefine HAS_FINAL_SOURCE_LOCATION

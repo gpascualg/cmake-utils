@@ -55,6 +55,16 @@ function(CheckSourceLocation)
     ")
     check_cxx17_source_compiles("${code}\n" HAS_EXPERIMENTAL_SOURCE_LOCATION)
     CheckOrSet(HAS_EXPERIMENTAL_SOURCE_LOCATION)
+
+    set(code "
+        #include <source_location>
+
+        int main() {
+            return std::source_location::current().line();
+        }
+    ")
+    check_cxx17_source_compiles("${code}\n" HAS_FINAL_SOURCE_LOCATION)
+    CheckOrSet(HAS_FINAL_SOURCE_LOCATION)
 endfunction()
 
 function(CreateBuildHeader)
@@ -133,7 +143,7 @@ macro(check_cxx17_source_compiles SOURCE VAR)
     try_compile(${VAR}
         ${CMAKE_BINARY_DIR}
         ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.cxx
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
         ${CHECK_CXX_SOURCE_COMPILES_ADD_LINK_OPTIONS}
         ${CHECK_CXX_SOURCE_COMPILES_ADD_LIBRARIES}
