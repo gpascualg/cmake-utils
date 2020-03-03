@@ -142,7 +142,7 @@ if(NOT "Experimental" IN_LIST want_components)
 endif()
 
 if(find_final)
-    check_include_file_cxx("filesystem" _CXX_FILESYSTEM_HAVE_HEADER)
+    check_include_files("filesystem" _CXX_FILESYSTEM_HAVE_HEADER LANGUAGE CXX)
     mark_as_advanced(_CXX_FILESYSTEM_HAVE_HEADER)
     if(_CXX_FILESYSTEM_HAVE_HEADER)
         # We found the non-experimental header. Don't bother looking for the
@@ -154,7 +154,7 @@ else()
 endif()
 
 if(find_experimental)
-    check_include_file_cxx("experimental/filesystem" _CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER)
+    check_include_files("experimental/filesystem" _CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER LANGUAGE CXX)
     mark_as_advanced(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER)
 else()
     set(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER FALSE)
